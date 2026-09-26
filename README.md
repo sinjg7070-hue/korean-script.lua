@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local mouse = localPlayer:GetMouse()
 
 local playerGui = localPlayer:WaitForChild("PlayerGui", 5) or localPlayer:FindFirstChildOfClass("PlayerGui")
 
@@ -183,16 +184,16 @@ destroyScriptBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- [프리미엄 전용: 단어 전송 UI]
+-- [프리미엄 전용: 트롤링 전송 UI 및 토글 시스템]
 -- ==========================================
 local remoteInputBox = Instance.new("TextBox")
 remoteInputBox.Name = "RemoteInputBox"
-remoteInputBox.Size = UDim2.new(0, 240, 0, 30)
+remoteInputBox.Size = UDim2.new(0, 150, 0, 30)
 remoteInputBox.Position = UDim2.new(0, 0, 1, 8)
 remoteInputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 remoteInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 remoteInputBox.PlaceholderColor3 = Color3.fromRGB(160, 160, 160)
-remoteInputBox.PlaceholderText = "[프리미엄] 사용자에게 정답 전송..."
+remoteInputBox.PlaceholderText = "이상한 가짜 답 입력..."
 remoteInputBox.TextSize = 12
 remoteInputBox.Font = Enum.Font.SourceSansBold
 remoteInputBox.Text = ""
@@ -203,14 +204,197 @@ local uiCornerRemote = Instance.new("UICorner")
 uiCornerRemote.CornerRadius = UDim.new(0, 6)
 uiCornerRemote.Parent = remoteInputBox
 
+local targetToggleBtn = Instance.new("TextButton")
+targetToggleBtn.Name = "TargetToggleBtn"
+targetToggleBtn.Size = UDim2.new(0, 85, 0, 30)
+targetToggleBtn.Position = UDim2.new(1, 5, 0, 0)
+targetToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+targetToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+targetToggleBtn.TextSize = 12
+targetToggleBtn.Font = Enum.Font.SourceSansBold
+targetToggleBtn.Text = "전송: OFF"
+targetToggleBtn.Parent = remoteInputBox
+
+local uiCornerToggle = Instance.new("UICorner")
+uiCornerToggle.CornerRadius = UDim.new(0, 6)
+uiCornerToggle.Parent = targetToggleBtn
+
 local function updatePremiumUIVisibility(isVisible)
     remoteInputBox.Visible = isVisible
 end
 
 -- ==========================================
+-- [네트워크 통신 설정 (스크립트 사용 여부 및 타겟 전송)]
+-- ==========================================
+local remoteFolderName = "WordHelperSyncNetwork"
+local syncFolder = ReplicatedStorage:FindFirstChild(remoteFolderName)
+if not syncFolder then
+    pcall(function()
+        syncFolder = Instance.new("Folder")
+        syncFolder.Name = remoteFolderName
+        syncFolder.Parent = ReplicatedStorage
+    end)
+end
+
+local remoteEvent = syncFolder:FindFirstChild("RemoteWordEvent")
+if not remoteEvent then
+    pcall(function()
+        remoteEvent = Instance.new("RemoteEvent")
+        remoteEvent.Name = "RemoteWordEvent"
+        remoteEvent.Parent = syncFolder
+    end)
+end
+
+-- 주기적으로 내가 스크립트를 사용 중임을 알림 브로드캐스트
+task.spawn(function()
+    while true do
+        task.wait(3)
+        pcall(function()
+            if remoteEvent then
+                remoteEvent:FireServer("PING", localPlayer.Name)
+            end
+        end)
+    end
+end)
+
+local targetPlayer = nil
+local targetToggleOn = false
+local scriptUsers = {} -- 상대방이 스크립트를 쓰면 이름 저장
+
+targetToggleBtn.MouseButton1Click:Connect(function()
+    targetToggleOn = not targetToggleOn
+    if targetToggleOn then
+        targetToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+        targetToggleBtn.Text = "전송: ON"
+    else
+        targetToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        targetToggleBtn.Text = "전송: OFF"
+        targetPlayer = nil
+    end
+end)
+
+-- 플레이어 클릭하여 타겟 지정 (전송 ON일 때)
+mouse.Button1Down:Connect(function()
+    if not targetToggleOn or not checkSavedPremiumAuthenticated() then return end
+    local hitTarget = mouse.Target
+    if hitTarget and hitTarget.Parent then
+        local character = hitTarget.Parent
+        local p = Players:GetPlayerFromCharacter(character)
+        if not p then
+            character = character.Parent
+            p = Players:GetPlayerFromCharacter(character)
+        end
+        if p and p ~= localPlayer then
+            targetPlayer = p
+            -- 시각적 표시 (빨간색 하이라이트)
+            pcall(function()
+                for _, otherP in ipairs(Players:GetPlayers()) do
+                    if otherP.Character and otherP.Character:FindFirstChild("HumanoidRootPart") then
+                        local hl = otherP.Character:FindFirstChild("WordHelperHighlight")
+                        if hl then hl:Destroy() end
+                    end
+                end
+                if p.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "WordHelperHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.Parent = p.Character
+                end
+            end)
+        end
+    end
+end)
+
+-- 머리 위에 스크립트 사용 여부 표시기 관리
+local function updateScriptUserBillboard(p, isUsing)
+    if not p.Character then return end
+    local head = p.Character:FindFirstChild("Head")
+    if not head then return end
+    
+    local guiName = "WordScriptStatusTag"
+    local billboard = head:FindFirstChild(guiName)
+    if not billboard then
+        billboard = Instance.new("BillboardGui")
+        billboard.Name = guiName
+        billboard.Size = UDim2.new(0, 120, 0, 30)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = head
+        
+        local textLbl = Instance.new("TextLabel")
+        textLbl.Name = "StatusText"
+        textLbl.Size = UDim2.new(1, 0, 1, 0)
+        textLbl.BackgroundTransparency = 1
+        textLbl.TextSize = 13
+        textLbl.Font = Enum.Font.SourceSansBold
+        textLbl.Parent = billboard
+    end
+    
+    local txtLabel = billboard:FindFirstChild("StatusText")
+    if txtLabel then
+        if isUsing then
+            txtLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
+            txtLabel.Text = "[스크립트 사용 중]"
+        else
+            txtLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            txtLabel.Text = "[미사용]"
+        end
+    end
+end
+
+-- 프리미엄 입력창에서 엔터 쳤을 때 타겟에게 가짜 정답 발사
+remoteInputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed and checkSavedPremiumAuthenticated() then
+        local fakeWord = remoteInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
+        if fakeWord ~= "" and targetPlayer and remoteEvent then
+            pcall(function()
+                remoteEvent:FireServer("TROLL_TARGET", targetPlayer.Name, fakeWord)
+            end)
+            remoteInputBox.Text = ""
+            remoteInputBox.PlaceholderText = "[전송 완료!] 타겟 조작됨"
+            task.delay(1.5, function()
+                if remoteInputBox and remoteInputBox.Parent then
+                    remoteInputBox.PlaceholderText = "이상한 가짜 답 입력..."
+                end
+            end)
+        end
+    end
+end)
+
+-- 서버 이벤트 수신 처리
+if remoteEvent then
+    remoteEvent.OnClientEvent:Connect(function(senderName, actionType, payload)
+        if actionType == "PING" then
+            scriptUsers[payload] = true
+            local p = Players:FindFirstChild(payload)
+            if p then updateScriptUserBillboard(p, true) end
+        elseif actionType == "TROLL_TARGET" and payload then
+            -- 내가 타겟팅되어 가짜 답을 받았을 때 내 정답창을 강제로 조작
+            answerLabel.Text = "정답: " .. payload
+            -- 자동정답 기능이 켜져있다면 가짜 답을 그대로 입력해버림!
+            triggerAutoInput(payload)
+        end
+    end)
+end
+
+-- 주기적으로 플레이어들의 스크립트 사용 상태 갱신 확인
+task.spawn(function()
+    while true do
+        task.wait(2)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= localPlayer then
+                local isUsing = scriptUsers[p.Name] or false
+                updateScriptUserBillboard(p, isUsing)
+            end
+        end
+    end
+end)
+
+-- ==========================================
 -- [자동 정답 입력 로직]
 -- ==========================================
-local function triggerAutoInput(word)
+function triggerAutoInput(word)
     if not autoAnswerEnabled then return end
     pcall(function()
         local targetBox = nil
@@ -470,68 +654,10 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 -- ==========================================
--- [스크립트 사용자 간 통신 네트워크 설정 (개선됨)]
--- ==========================================
-local remoteFolderName = "WordHelperSyncNetwork"
-local syncFolder = ReplicatedStorage:FindFirstChild(remoteFolderName)
-if not syncFolder then
-    pcall(function()
-        syncFolder = Instance.new("Folder")
-        syncFolder.Name = remoteFolderName
-        syncFolder.Parent = ReplicatedStorage
-    end)
-end
-
-local remoteEvent = syncFolder:FindFirstChild("RemoteWordEvent")
-if not remoteEvent then
-    pcall(function()
-        remoteEvent = Instance.new("RemoteEvent")
-        remoteEvent.Name = "RemoteWordEvent"
-        remoteEvent.Parent = syncFolder
-    end)
-end
-
--- 프리미엄 단어 전송 처리 (보완: 내 화면에도 즉시 적용되도록 수정)
-remoteInputBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed and checkSavedPremiumAuthenticated() then
-        local typedWord = remoteInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
-        if typedWord ~= "" then
-            -- 1. 서버를 통해 다른 모든 클라이언트로 전송
-            if remoteEvent then
-                pcall(function()
-                    remoteEvent:FireServer("WORD", typedWord)
-                end)
-            end
-            -- 2. 내 화면에서도 곧바로 정답으로 인식하고 자동 입력 실행
-            answerLabel.Text = "정답: " .. typedWord
-            triggerAutoInput(typedWord)
-            
-            remoteInputBox.Text = ""
-            remoteInputBox.PlaceholderText = "[전송 완료!] 다음 단어 입력..."
-            task.delay(1.5, function()
-                if remoteInputBox and remoteInputBox.Parent then
-                    remoteInputBox.PlaceholderText = "[프리미엄] 사용자에게 정답 전송..."
-                end
-            end)
-        end
-    end
-end)
-
--- 원격 신호 수신 (다른 프리미엄 유저가 단어를 보냈을 때)
-if remoteEvent then
-    remoteEvent.OnClientEvent:Connect(function(senderName, actionType, payload)
-        if actionType == "WORD" and payload then
-            if senderName ~= localPlayer.Name then
-                answerLabel.Text = "정답: " .. payload
-                triggerAutoInput(payload)
-            end
-        end
-    end)
-end
-
--- ==========================================
 -- [단어 검증 및 정답 추출 로직]
 -- ==========================================
+local currentAnswer = ""
+
 local function isValidWord(txt)
     if not txt or type(txt) ~= "string" then return false end
     txt = txt:gsub("^%s*(.-)%s*$", "%1")
@@ -561,7 +687,24 @@ local function checkRoundReset(txt)
     return false
 end
 
--- 이벤트 감지 및 처리
+local function processValue(txt)
+    if not txt or type(txt) ~= "string" then return end
+    txt = txt:gsub("^%s*(.-)%s*$", "%1")
+    
+    if checkRoundReset(txt) then
+        if currentAnswer ~= "RESET" then
+            currentAnswer = "RESET"
+            answerLabel.Text = "정답: 라운드 대기 중..."
+        end
+    elseif isValidWord(txt) then
+        if txt ~= currentAnswer then
+            currentAnswer = txt
+            answerLabel.Text = "정답: " .. txt
+            triggerAutoInput(txt)
+        end
+    end
+end
+
 pcall(function()
     for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
         if (v:IsA("RemoteEvent") or v:IsA("UnreliableRemoteEvent")) and v.Name ~= "RemoteWordEvent" then
@@ -569,21 +712,11 @@ pcall(function()
                 local args = {...}
                 for _, arg in ipairs(args) do
                     if type(arg) == "string" then
-                        if checkRoundReset(arg) then
-                            answerLabel.Text = "정답: 라운드 대기 중..."
-                        elseif isValidWord(arg) then
-                            answerLabel.Text = "정답: " .. arg
-                            triggerAutoInput(arg)
-                        end
+                        processValue(arg)
                     elseif type(arg) == "table" then
                         for _, subArg in pairs(arg) do
                             if type(subArg) == "string" then
-                                if checkRoundReset(subArg) then
-                                    answerLabel.Text = "정답: 라운드 대기 중..."
-                                elseif isValidWord(subArg) then
-                                    answerLabel.Text = "정답: " .. subArg
-                                    triggerAutoInput(subArg)
-                                end
+                                processValue(subArg)
                             end
                         end
                     end
@@ -593,23 +726,21 @@ pcall(function()
     end
 end)
 
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        pcall(function()
-            for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-                if obj:IsA("StringValue") then
-                    local val = obj.Value
-                    if checkRoundReset(val) then
-                        answerLabel.Text = "정답: 라운드 대기 중..."
-                        break
-                    elseif isValidWord(val) then
-                        answerLabel.Text = "정답: " .. val
-                        triggerAutoInput(val)
-                        break
-                    end
-                end
-            end
-        end)
+pcall(function()
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("StringValue") then
+            processValue(obj.Value)
+            obj.Changed:Connect(function(val)
+                processValue(val)
+            end)
+        end
     end
+    
+    ReplicatedStorage.DescendantAdded:Connect(function(obj)
+        if obj:IsA("StringValue") then
+            obj.Changed:Connect(function(val)
+                processValue(val)
+            end)
+        end
+    end)
 end)
