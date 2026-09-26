@@ -1,5 +1,5 @@
 -- ==========================================
--- [단어 맞히기 헬퍼 - 통합 완성 버전]
+-- [단어 맞히기 헬퍼 - 패치노트 포함 통합 버전]
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -329,6 +329,85 @@ pcall(function()
 end)
 
 -- ==========================================
+-- [패치노트 UI 창 생성 함수]
+-- ==========================================
+local function createPatchNotesUI(keyFrame)
+    local patchFrame = Instance.new("Frame")
+    patchFrame.Size = UDim2.new(0, 320, 0, 320)
+    patchFrame.Position = UDim2.new(0.5, -160, 0.4, -160)
+    patchFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    patchFrame.BorderSizePixel = 0
+    patchFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = patchFrame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 16
+    title.Font = Enum.Font.SourceSansBold
+    title.Text = "📜 스크립트 패치노트 & 업데이트"
+    title.Parent = patchFrame
+
+    -- 패치노트 내용 스크롤/텍스트 영역
+    local contentBox = Instance.new("TextLabel")
+    contentBox.Size = UDim2.new(0, 280, 0, 210)
+    contentBox.Position = UDim2.new(0.5, -140, 0, 45)
+    contentBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    contentBox.TextColor3 = Color3.fromRGB(220, 220, 220)
+    contentBox.TextSize = 12
+    contentBox.Font = Enum.Font.SourceSans
+    contentBox.TextXAlignment = Enum.TextXAlignment.Left
+    contentBox.TextYAlignment = Enum.TextYAlignment.Top
+    contentBox.TextWrapped = true
+    contentBox.Text = [[
+[ v1.3 업데이트 내역 ]
+• 1CasaNova6974 프리미엄 키 추가 완료 (전용 키 연동)
+• 프리미엄 전용 [자동정답 ON/OFF] 기능 탑재
+• 리모트 이벤트 및 StringValue 실시간 단어 추출 로직 강화
+
+[ v1.2 업데이트 내역 ]
+• 2단계 본인 확인 인증 시스템(Username & Display Name) 적용
+• 개발자 및 친구 전용 바이패스 코드 기능 추가
+• UI 드래그 이동 기능 및 깔끔한 모서리 디자인 적용
+
+[ v1.1 업데이트 내역 ]
+• 불필요한 시스템 텍스트 및 숫자/특수문자 필터링 정교화
+• 키 시스템 초기화 및 스크립트 완전 삭제 버튼 추가
+]]
+    contentBox.Parent = patchFrame
+
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 6)
+    boxCorner.Parent = contentBox
+
+    -- 닫기 버튼
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 280, 0, 32)
+    closeBtn.Position = UDim2.new(0.5, -140, 0, 268)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextSize = 13
+    closeBtn.Font = Enum.Font.SourceSansBold
+    closeBtn.Text = "닫기"
+    closeBtn.Parent = patchFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = closeBtn
+
+    closeBtn.MouseButton1Click:Connect(function()
+        patchFrame:Destroy()
+        if keyFrame then
+            keyFrame.Visible = true
+        end
+    end)
+end
+
+-- ==========================================
 -- [저장된 키 모음 정보 창]
 -- ==========================================
 local function createKeyInfoResultUI(specialFrame)
@@ -619,8 +698,8 @@ end
 
 local function createKeySystemUI()
     local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.new(0, 300, 0, 290)
-    keyFrame.Position = UDim2.new(0.5, -150, 0.4, -145)
+    keyFrame.Size = UDim2.new(0, 300, 0, 325)
+    keyFrame.Position = UDim2.new(0.5, -150, 0.4, -162)
     keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     keyFrame.BorderSizePixel = 0
     keyFrame.Visible = true
@@ -710,9 +789,24 @@ local function createKeySystemUI()
     uiCornerDevFriend.CornerRadius = UDim.new(0, 6)
     uiCornerDevFriend.Parent = devFriendBtn
 
+    -- [패치노트 버튼 추가]
+    local patchNoteBtn = Instance.new("TextButton")
+    patchNoteBtn.Size = UDim2.new(0, 260, 0, 28)
+    patchNoteBtn.Position = UDim2.new(0.5, -130, 0, 214)
+    patchNoteBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+    patchNoteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    patchNoteBtn.TextSize = 12
+    patchNoteBtn.Font = Enum.Font.SourceSansBold
+    patchNoteBtn.Text = "📜 패치노트 및 업데이트 확인"
+    patchNoteBtn.Parent = keyFrame
+
+    local uiCornerPatch = Instance.new("UICorner")
+    uiCornerPatch.CornerRadius = UDim.new(0, 6)
+    uiCornerPatch.Parent = patchNoteBtn
+
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Size = UDim2.new(1, 0, 0, 25)
-    statusLabel.Position = UDim2.new(0, 0, 0, 212)
+    statusLabel.Position = UDim2.new(0, 0, 0, 248)
     statusLabel.BackgroundTransparency = 1
     statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
     statusLabel.TextSize = 12
@@ -735,6 +829,11 @@ local function createKeySystemUI()
     devFriendBtn.MouseButton1Click:Connect(function()
         keyFrame.Visible = false
         createSpecialCodeUI(keyFrame)
+    end)
+
+    patchNoteBtn.MouseButton1Click:Connect(function()
+        keyFrame.Visible = false
+        createPatchNotesUI(keyFrame)
     end)
 
     submitBtn.MouseButton1Click:Connect(function()
@@ -788,7 +887,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        delta = input.Position - dragStart
+        local delta = input.Position - dragStart
         titleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
