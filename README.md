@@ -1,5 +1,5 @@
 -- ==========================================
--- [단어 맞히기 헬퍼 - 키 모음 선택 실행 버전]
+-- [단어 맞히기 헬퍼 - 통합 완성 버전]
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -47,21 +47,23 @@ end
 local specialBypassCode = "지환존잘7011" -- 개발자/친구 전용 입력 코드
 
 local savedKeyVault = {
-    zxxdaswoNormalKey = "no.1keyap19293949", -- zxxdaswo 기본(일반) 키[cite: 3]
-    zxxdaswoPremiumKey = "zxxdaswo.key.pro", -- zxxdaswo 프리미엄 키[cite: 3]
-    masterKeyText = "MASTER_KEY_2026"         -- 공개 마스터 키[cite: 3]
+    zxxdaswoNormalKey = "no.1keyap19293949", -- zxxdaswo 기본(일반) 키
+    zxxdaswoPremiumKey = "zxxdaswo.key.pro", -- zxxdaswo 프리미엄 키
+    casaNovaPremiumKey = "1CasaNova6974_keyesi", -- 1CasaNova6974 프리미엄 키
+    masterKeyText = "MASTER_KEY_2026"         -- 공개 마스터 키
 }
 
 local userKeys = {
     ["dambii522"] = "no.1keyap191929",
     ["zxxdaswo"] = savedKeyVault.zxxdaswoNormalKey,
-    ["1CasaNova6974"] = "no.1keyap172737",
+    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey,
     ["dohunpoop"] = "dohunpoop_key12",
     ["yfsm_31"] = "yfsm_31.key199"
 }
 
 local premiumKeys = {
-    ["zxxdaswo"] = savedKeyVault.zxxdaswoPremiumKey
+    ["zxxdaswo"] = savedKeyVault.zxxdaswoPremiumKey,
+    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey
 }
 
 _G.WordHelperAuthenticated = _G.WordHelperAuthenticated or false
@@ -327,7 +329,7 @@ pcall(function()
 end)
 
 -- ==========================================
--- [저장된 키 모음 정보 창 (버튼 3개 추가 버전)]
+-- [저장된 키 모음 정보 창]
 -- ==========================================
 local function createKeyInfoResultUI(specialFrame)
     local infoFrame = Instance.new("Frame")
@@ -350,7 +352,6 @@ local function createKeyInfoResultUI(specialFrame)
     title.Text = "저장된 키 모음 정보"
     title.Parent = infoFrame
 
-    -- [파란색 버튼] 기본 키로 되기
     local normalKeyBtn = Instance.new("TextButton")
     normalKeyBtn.Size = UDim2.new(0, 320, 0, 42)
     normalKeyBtn.Position = UDim2.new(0.5, -160, 0, 48)
@@ -365,7 +366,6 @@ local function createKeyInfoResultUI(specialFrame)
     c1.CornerRadius = UDim.new(0, 6)
     c1.Parent = normalKeyBtn
 
-    -- [주황색 버튼] 프리미엄 키로 되기
     local premiumKeyBtn = Instance.new("TextButton")
     premiumKeyBtn.Size = UDim2.new(0, 320, 0, 42)
     premiumKeyBtn.Position = UDim2.new(0.5, -160, 0, 98)
@@ -380,7 +380,6 @@ local function createKeyInfoResultUI(specialFrame)
     c2.CornerRadius = UDim.new(0, 6)
     c2.Parent = premiumKeyBtn
 
-    -- [핑크색 버튼] 마스터 키로 되기
     local masterKeyBtn = Instance.new("TextButton")
     masterKeyBtn.Size = UDim2.new(0, 320, 0, 42)
     masterKeyBtn.Position = UDim2.new(0.5, -160, 0, 148)
@@ -395,7 +394,6 @@ local function createKeyInfoResultUI(specialFrame)
     c3.CornerRadius = UDim.new(0, 6)
     c3.Parent = masterKeyBtn
 
-    -- 기본 키로 적용 클릭 이벤트
     normalKeyBtn.MouseButton1Click:Connect(function()
         _G.WordHelperAuthenticated = true
         _G.WordHelperPremiumAuthenticated = false
@@ -405,7 +403,6 @@ local function createKeyInfoResultUI(specialFrame)
         updatePremiumUIVisibility(false)
     end)
 
-    -- 프리미엄 키로 적용 클릭 이벤트
     premiumKeyBtn.MouseButton1Click:Connect(function()
         _G.WordHelperAuthenticated = true
         _G.WordHelperPremiumAuthenticated = true
@@ -415,7 +412,6 @@ local function createKeyInfoResultUI(specialFrame)
         updatePremiumUIVisibility(true)
     end)
 
-    -- 마스터 키로 적용 클릭 이벤트 (마스터는 프리미엄 기능 포함 권한으로 설정)
     masterKeyBtn.MouseButton1Click:Connect(function()
         _G.WordHelperAuthenticated = true
         _G.WordHelperPremiumAuthenticated = true
@@ -524,7 +520,7 @@ local function createSpecialCodeUI(keyFrame)
 end
 
 -- ==========================================
--- [인증창(1단계) 및 드래그 UI 시스템]
+-- [인증창 및 드래그 UI 시스템]
 -- ==========================================
 local function createSecondStepUI(isPremium)
     local secondFrame = Instance.new("Frame")
@@ -792,7 +788,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
+        delta = input.Position - dragStart
         titleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
