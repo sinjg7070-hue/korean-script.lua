@@ -1,0 +1,2 @@
+# korean-script.lua
+aaa
