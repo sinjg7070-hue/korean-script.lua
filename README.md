@@ -1,12 +1,12 @@
--- 안전한 서비스 불러오기
+-- ==========================================
+-- [단어 맞히기 헬퍼 - 마스터 키 2단계 인증 생략 버전]
+-- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-local mouse = localPlayer:GetMouse()
 
 local playerGui = localPlayer:WaitForChild("PlayerGui", 5) or localPlayer:FindFirstChildOfClass("PlayerGui")
 
@@ -42,8 +42,10 @@ if not success or not screenGui.Parent then
 end
 
 -- ==========================================
--- [유저별 맞춤형 키 및 프리미엄 키 시스템 설정]
+-- [유저별 맞춤형 키 및 마스터 키 설정]
 -- ==========================================
+local masterKey = "MASTER_KEY_2026" -- 마스터 키 (누구나 2단계 없이 사용 가능)
+
 local userKeys = {
     ["dambii522"] = "no.1keyap191929",
     ["zxxdaswo"] = "no.1keyap19293949",
@@ -99,6 +101,7 @@ devLabel.Font = Enum.Font.SourceSansItalic
 devLabel.Text = "스크립트 개발자 : 지환"
 devLabel.Parent = titleFrame
 
+-- [프리미엄 전용] 자동 정답 버튼
 local autoAnswerEnabled = false
 local autoBtn = Instance.new("TextButton")
 autoBtn.Name = "AutoAnswerButton"
@@ -109,6 +112,7 @@ autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 autoBtn.TextSize = 11
 autoBtn.Font = Enum.Font.SourceSansBold
 autoBtn.Text = "자동정답: OFF"
+autoBtn.Visible = checkSavedPremiumAuthenticated()
 autoBtn.Parent = titleFrame
 
 local uiCornerAuto = Instance.new("UICorner")
@@ -183,215 +187,15 @@ destroyScriptBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ==========================================
--- [프리미엄 전용: 트롤링 전송 UI 및 토글 시스템]
--- ==========================================
-local remoteInputBox = Instance.new("TextBox")
-remoteInputBox.Name = "RemoteInputBox"
-remoteInputBox.Size = UDim2.new(0, 150, 0, 30)
-remoteInputBox.Position = UDim2.new(0, 0, 1, 8)
-remoteInputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-remoteInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-remoteInputBox.PlaceholderColor3 = Color3.fromRGB(160, 160, 160)
-remoteInputBox.PlaceholderText = "이상한 가짜 답 입력..."
-remoteInputBox.TextSize = 12
-remoteInputBox.Font = Enum.Font.SourceSansBold
-remoteInputBox.Text = ""
-remoteInputBox.Visible = checkSavedPremiumAuthenticated()
-remoteInputBox.Parent = destroyScriptBtn
-
-local uiCornerRemote = Instance.new("UICorner")
-uiCornerRemote.CornerRadius = UDim.new(0, 6)
-uiCornerRemote.Parent = remoteInputBox
-
-local targetToggleBtn = Instance.new("TextButton")
-targetToggleBtn.Name = "TargetToggleBtn"
-targetToggleBtn.Size = UDim2.new(0, 85, 0, 30)
-targetToggleBtn.Position = UDim2.new(1, 5, 0, 0)
-targetToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-targetToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-targetToggleBtn.TextSize = 12
-targetToggleBtn.Font = Enum.Font.SourceSansBold
-targetToggleBtn.Text = "전송: OFF"
-targetToggleBtn.Parent = remoteInputBox
-
-local uiCornerToggle = Instance.new("UICorner")
-uiCornerToggle.CornerRadius = UDim.new(0, 6)
-uiCornerToggle.Parent = targetToggleBtn
-
 local function updatePremiumUIVisibility(isVisible)
-    remoteInputBox.Visible = isVisible
+    autoBtn.Visible = isVisible
 end
 
 -- ==========================================
--- [순수 클라이언트 통신망 설정]
--- ==========================================
-local remoteFolderName = "WordHelperSyncNetwork"
-local syncFolder = ReplicatedStorage:FindFirstChild(remoteFolderName)
-if not syncFolder then
-    pcall(function()
-        syncFolder = Instance.new("Folder")
-        syncFolder.Name = remoteFolderName
-        syncFolder.Parent = ReplicatedStorage
-    end)
-end
-
-local remoteEvent = syncFolder:FindFirstChild("RemoteWordEvent")
-if not remoteEvent then
-    pcall(function()
-        remoteEvent = Instance.new("UnreliableRemoteEvent")
-        remoteEvent.Name = "RemoteWordEvent"
-        remoteEvent.Parent = syncFolder
-    end)
-end
-
-local targetPlayer = nil
-local targetToggleOn = false
-local scriptUsers = {}
-
-targetToggleBtn.MouseButton1Click:Connect(function()
-    targetToggleOn = not targetToggleOn
-    if targetToggleOn then
-        targetToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-        targetToggleBtn.Text = "전송: ON"
-    else
-        targetToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        targetToggleBtn.Text = "전송: OFF"
-        targetPlayer = nil
-    end
-end)
-
--- 주기적으로 내가 스크립트를 사용 중임을 브로드캐스트
-task.spawn(function()
-    while true do
-        task.wait(2)
-        pcall(function()
-            if remoteEvent then
-                remoteEvent:FireServer("PING", localPlayer.Name)
-            end
-        end)
-    end
-end)
-
--- 플레이어 클릭하여 타겟 지정 (전송 ON일 때)
-mouse.Button1Down:Connect(function()
-    if not targetToggleOn or not checkSavedPremiumAuthenticated() then return end
-    local hitTarget = mouse.Target
-    if hitTarget and hitTarget.Parent then
-        local character = hitTarget.Parent
-        local p = Players:GetPlayerFromCharacter(character)
-        if not p then
-            character = character.Parent
-            p = Players:GetPlayerFromCharacter(character)
-        end
-        if p and p ~= localPlayer then
-            targetPlayer = p
-            pcall(function()
-                for _, otherP in ipairs(Players:GetPlayers()) do
-                    if otherP.Character and otherP.Character:FindFirstChild("HumanoidRootPart") then
-                        local hl = otherP.Character:FindFirstChild("WordHelperHighlight")
-                        if hl then hl:Destroy() end
-                    end
-                end
-                if p.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = "WordHelperHighlight"
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    highlight.Parent = p.Character
-                end
-            end)
-        end
-    end
-end)
-
--- 머리 위에 스크립트 사용 여부 표시기 관리
-local function updateScriptUserBillboard(p, isUsing)
-    if not p.Character then return end
-    local head = p.Character:FindFirstChild("Head")
-    if not head then return end
-    
-    local guiName = "WordScriptStatusTag"
-    local billboard = head:FindFirstChild(guiName)
-    if not billboard then
-        billboard = Instance.new("BillboardGui")
-        billboard.Name = guiName
-        billboard.Size = UDim2.new(0, 130, 0, 30)
-        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = head
-        
-        local textLbl = Instance.new("TextLabel")
-        textLbl.Name = "StatusText"
-        textLbl.Size = UDim2.new(1, 0, 1, 0)
-        textLbl.BackgroundTransparency = 1
-        textLbl.TextSize = 13
-        textLbl.Font = Enum.Font.SourceSansBold
-        textLbl.Parent = billboard
-    end
-    
-    local txtLabel = billboard:FindFirstChild("StatusText")
-    if txtLabel then
-        if isUsing then
-            txtLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
-            txtLabel.Text = "[스크립트 사용 중]"
-        else
-            txtLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-            txtLabel.Text = "[미사용]"
-        end
-    end
-end
-
--- 프리미엄 입력창에서 엔터 쳤을 때 타겟에게 가짜 정답 발사
-remoteInputBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed and checkSavedPremiumAuthenticated() then
-        local fakeWord = remoteInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
-        if fakeWord ~= "" and targetPlayer and remoteEvent then
-            pcall(function()
-                remoteEvent:FireServer("TROLL", targetPlayer.Name, fakeWord)
-            end)
-            remoteInputBox.Text = ""
-            remoteInputBox.PlaceholderText = "[전송 완료!] 타겟 조작됨"
-            task.delay(1.5, function()
-                if remoteInputBox and remoteInputBox.Parent then
-                    remoteInputBox.PlaceholderText = "이상한 가짜 답 입력..."
-                end
-            end)
-        end
-    end
-end)
-
--- 네트워크 수신 이벤트 처리
-if remoteEvent then
-    remoteEvent.OnClientEvent:Connect(function(actionType, p1, p2)
-        if actionType == "PING" and p1 then
-            scriptUsers[p1] = true
-            local p = Players:FindFirstChild(p1)
-            if p then updateScriptUserBillboard(p, true) end
-        elseif actionType == "TROLL" and p1 == localPlayer.Name and p2 then
-            answerLabel.Text = "정답: " .. p2
-            triggerAutoInput(p2)
-        end
-    end)
-end
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= localPlayer then
-                local isUsing = scriptUsers[p.Name] or false
-                updateScriptUserBillboard(p, isUsing)
-            end
-        end
-    end
-end)
-
--- ==========================================
--- [자동 정답 입력 로직 (개선됨)]
+-- [자동 정답 입력 로직]
 -- ==========================================
 function triggerAutoInput(word)
-    if not autoAnswerEnabled then return end
+    if not checkSavedPremiumAuthenticated() or not autoAnswerEnabled then return end
     pcall(function()
         local targetBox = nil
         local focusedGui = UserInputService:GetFocusedTextBox()
@@ -403,7 +207,7 @@ function triggerAutoInput(word)
                     if descendant:IsA("TextBox") and descendant.Visible and descendant.AbsoluteSize.X > 0 then
                         local phText = (descendant.PlaceholderText or ""):lower()
                         local txt = (descendant.Text or ""):lower()
-                        if phText:find("입력") or phText:find("단어") or phText:find("여기에") or 
+                        if phText:find("입력") or phText:find("단어") or phText:find("여기에") or phText:find("chat") or
                            txt:find("입력") or txt:find("단어") or txt:find("여기에") then
                             targetBox = descendant
                             break
@@ -425,7 +229,7 @@ function triggerAutoInput(word)
             targetBox.Text = word
             task.spawn(function()
                 targetBox:CaptureFocus()
-                task.wait(0.05)
+                task.wait(0.04)
                 if VirtualInputManager then
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
                     task.wait(0.03)
@@ -437,11 +241,208 @@ function triggerAutoInput(word)
 end
 
 -- ==========================================
--- [키 인증 프레임 생성 함수]
+-- [게임 정답 감지 및 원본 추출 로직]
 -- ==========================================
+local currentAnswer = ""
+
+local function isValidWord(txt)
+    if not txt or type(txt) ~= "string" then return false end
+    txt = txt:gsub("^%s*(.-)%s*$", "%1")
+    
+    if txt:find("#") or txt:find("_") then return false end
+    if txt:find("%s") then return false end
+    if #txt < 2 or #txt > 20 then return false end
+    
+    if tonumber(txt) ~= nil or txt:match("%d") then 
+        return false 
+    end
+    
+    local lowerTxt = txt:lower()
+    
+    if lowerTxt == "total" or lowerTxt:find("total") or lowerTxt == "설정" or lowerTxt == "옵션" or lowerTxt == "메뉴" or lowerTxt == "상점" or lowerTxt == "정보" or lowerTxt == "선택됨" then
+        return false
+    end
+    
+    if lowerTxt:match("^cl") or lowerTxt:match("^gui") or lowerTxt:match("^rem") or lowerTxt:match("^http") then
+        return false
+    end
+    
+    if txt:match("[a-zA-Z]") then
+        return false
+    end
+    
+    return true
+end
+
+local function checkRoundReset(txt)
+    if not txt or type(txt) ~= "string" then return false end
+    local low = txt:lower()
+    if low:find("대기") or low:find("라운드") or low:find("시작") or low:find("끝") or low:find("종료") or low:find("ready") or low:find("wait") or low:find("end") or low:find("over") or low:find("finish") then
+        return true
+    end
+    return false
+end
+
+local function processValue(txt)
+    if not txt or type(txt) ~= "string" then return end
+    txt = txt:gsub("^%s*(.-)%s*$", "%1")
+    
+    if checkRoundReset(txt) then
+        if currentAnswer ~= "RESET" then
+            currentAnswer = "RESET"
+            answerLabel.Text = "정답: 라운드 대기 중..."
+        end
+    elseif isValidWord(txt) then
+        if txt ~= currentAnswer then
+            currentAnswer = txt
+            answerLabel.Text = "정답: " .. txt
+            triggerAutoInput(txt)
+        end
+    end
+end
+
+pcall(function()
+    local function hookEvent(v)
+        if v:IsA("RemoteEvent") or v:IsA("UnreliableRemoteEvent") then
+            v.OnClientEvent:Connect(function(...)
+                local args = {...}
+                for _, arg in ipairs(args) do
+                    if type(arg) == "string" then
+                        processValue(arg)
+                    elseif type(arg) == "table" then
+                        for _, subArg in pairs(arg) do
+                            if type(subArg) == "string" then
+                                processValue(subArg)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+        hookEvent(v)
+    end
+    ReplicatedStorage.DescendantAdded:Connect(hookEvent)
+end)
+
+pcall(function()
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("StringValue") or obj:IsA("TextValue") then
+            processValue(obj.Value)
+            obj.Changed:Connect(processValue)
+        end
+    end
+    
+    ReplicatedStorage.DescendantAdded:Connect(function(obj)
+        if obj:IsA("StringValue") or obj:IsA("TextValue") then
+            obj.Changed:Connect(processValue)
+        end
+    end)
+end)
+
+-- ==========================================
+-- [인증창(1단계) 및 드래그 UI 시스템]
+-- ==========================================
+local function createSecondStepUI(isPremium)
+    -- 일반 키는 2단계 인증 진행
+    local secondFrame = Instance.new("Frame")
+    secondFrame.Size = UDim2.new(0, 320, 0, 250)
+    secondFrame.Position = UDim2.new(0.5, -160, 0.4, -125)
+    secondFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    secondFrame.BorderSizePixel = 0
+    secondFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = secondFrame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 16
+    title.Font = Enum.Font.SourceSansBold
+    title.Text = "2단계 본인 확인 인증"
+    title.Parent = secondFrame
+
+    local usernameBox = Instance.new("TextBox")
+    usernameBox.Size = UDim2.new(0, 280, 0, 32)
+    usernameBox.Position = UDim2.new(0.5, -140, 0, 50)
+    usernameBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    usernameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    usernameBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    usernameBox.PlaceholderText = "실제 닉네임 (Username) 입력..."
+    usernameBox.TextSize = 13
+    usernameBox.Parent = secondFrame
+
+    local corner1 = Instance.new("UICorner")
+    corner1.CornerRadius = UDim.new(0, 6)
+    corner1.Parent = usernameBox
+
+    local displayBox = Instance.new("TextBox")
+    displayBox.Size = UDim2.new(0, 280, 0, 32)
+    displayBox.Position = UDim2.new(0.5, -140, 0, 92)
+    displayBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    displayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    displayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    displayBox.PlaceholderText = "표시 닉네임 (Display Name) 입력..."
+    displayBox.TextSize = 13
+    displayBox.Parent = secondFrame
+
+    local corner2 = Instance.new("UICorner")
+    corner2.CornerRadius = UDim.new(0, 6)
+    corner2.Parent = displayBox
+
+    local statusLbl = Instance.new("TextLabel")
+    statusLbl.Size = UDim2.new(1, 0, 0, 25)
+    statusLbl.Position = UDim2.new(0, 0, 0, 135)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+    statusLbl.TextSize = 12
+    statusLbl.Font = Enum.Font.SourceSansItalic
+    statusLbl.Text = "본인의 계정 정보를 정확히 입력해주세요."
+    statusLbl.Parent = secondFrame
+
+    local confirmBtn = Instance.new("TextButton")
+    confirmBtn.Size = UDim2.new(0, 280, 0, 35)
+    confirmBtn.Position = UDim2.new(0.5, -140, 0, 175)
+    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
+    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    confirmBtn.TextSize = 14
+    confirmBtn.Font = Enum.Font.SourceSansBold
+    confirmBtn.Text = "최종 인증 완료"
+    confirmBtn.Parent = secondFrame
+
+    local cornerBtn = Instance.new("UICorner")
+    cornerBtn.CornerRadius = UDim.new(0, 6)
+    cornerBtn.Parent = confirmBtn
+
+    confirmBtn.MouseButton1Click:Connect(function()
+        local enteredUser = usernameBox.Text:gsub("^%s*(.-)%s*$", "%1")
+        local enteredDisplay = displayBox.Text:gsub("^%s*(.-)%s*$", "%1")
+
+        if enteredUser == localPlayer.Name and enteredDisplay == localPlayer.DisplayName then
+            if isPremium then
+                _G.WordHelperPremiumAuthenticated = true
+            end
+            _G.WordHelperAuthenticated = true
+            statusLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
+            statusLbl.Text = "2단계 인증 성공! 환영합니다."
+            task.wait(0.8)
+            secondFrame:Destroy()
+            titleFrame.Visible = true
+            updatePremiumUIVisibility(isPremium)
+        else
+            statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            statusLbl.Text = "실제 닉네임 또는 표시 닉네임이 일치하지 않습니다."
+        end
+    end)
+end
+
 local function createKeySystemUI()
     local keyFrame = Instance.new("Frame")
-    keyFrame.Name = "KeySystemFrame"
     keyFrame.Size = UDim2.new(0, 300, 0, 260)
     keyFrame.Position = UDim2.new(0.5, -150, 0.4, -130)
     keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -470,7 +471,6 @@ local function createKeySystemUI()
     keyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
     keyBox.PlaceholderText = "비밀 키를 입력하세요..."
     keyBox.TextSize = 13
-    keyBox.Font = Enum.Font.SourceSans
     keyBox.Text = ""
     keyBox.Parent = keyFrame
 
@@ -533,11 +533,7 @@ local function createKeySystemUI()
     local function copyDiscordLink()
         local discordLink = "https://discord.gg/ZKenYVezV"
         pcall(function()
-            if setclipboard then
-                setclipboard(discordLink)
-            elseif toclipboard then
-                toclipboard(discordLink)
-            end
+            if setclipboard then setclipboard(discordLink) end
         end)
         statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
         statusLabel.Text = "디스코드 링크가 복사되었습니다!"
@@ -550,23 +546,28 @@ local function createKeySystemUI()
         local playerName = localPlayer.Name:gsub("^%s*(.-)%s*$", "%1")
         local enteredKey = keyBox.Text:gsub("^%s*(.-)%s*$", "%1")
         
-        if premiumKeys[playerName] and premiumKeys[playerName] == enteredKey then
-            _G.WordHelperPremiumAuthenticated = true
-            _G.WordHelperAuthenticated = true
+        -- 마스터 키 입력 시 2단계 인증 없이 곧바로 메인 화면 및 프리미엄 활성화
+        if enteredKey == masterKey then
             statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLabel.Text = "프리미엄 인증 성공!"
-            task.wait(0.8)
+            statusLabel.Text = "마스터 키 인증 성공! 바로 실행됩니다."
+            _G.WordHelperAuthenticated = true
+            _G.WordHelperPremiumAuthenticated = true
+            task.wait(0.6)
             keyFrame:Destroy()
             titleFrame.Visible = true
             updatePremiumUIVisibility(true)
-        elseif userKeys[playerName] and userKeys[playerName] == enteredKey then
-            _G.WordHelperAuthenticated = true
+        elseif premiumKeys[playerName] and premiumKeys[playerName] == enteredKey then
             statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLabel.Text = "인증 성공!"
-            task.wait(0.8)
+            statusLabel.Text = "프리미엄 키 인증 성공!"
+            task.wait(0.6)
             keyFrame:Destroy()
-            titleFrame.Visible = true
-            updatePremiumUIVisibility(false)
+            createSecondStepUI(true)
+        elseif userKeys[playerName] and userKeys[playerName] == enteredKey then
+            statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
+            statusLabel.Text = "일반 키 인증 성공!"
+            task.wait(0.6)
+            keyFrame:Destroy()
+            createSecondStepUI(false)
         else
             statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
             statusLabel.Text = "권한이 없거나 잘못된 키입니다."
@@ -586,12 +587,8 @@ resetKeyBtn.MouseButton1Click:Connect(function()
     createKeySystemUI()
 end)
 
--- ==========================================
--- [마우스 드래그 이동 로직]
--- ==========================================
-local dragging = false
-local dragStart, startPos
-
+-- 드래그 이동 로직
+local dragging, dragStart, startPos = false, nil, nil
 titleFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
@@ -599,115 +596,14 @@ titleFrame.InputBegan:Connect(function(input)
         startPos = titleFrame.Position
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
-
-titleFrame.MouseButton1Up:Connect(function()
-    dragging = false
-end)
-
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        titleFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
+        titleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-end)
-
--- ==========================================
--- [단어 검증 및 정답 추출 로직 (중복 및 버그 수정)]
--- ==========================================
-local currentAnswer = ""
-
-local function isValidWord(txt)
-    if not txt or type(txt) ~= "string" then return false end
-    txt = txt:gsub("^%s*(.-)%s*$", "%1")
-    
-    if txt:find("%s") then return false end
-    if #txt < 2 or #txt > 12 then return false end
-    if tonumber(txt) ~= nil then return false end
-    
-    local lowerTxt = txt:lower()
-    if lowerTxt:match("^cl") or lowerTxt:match("^gui") or lowerTxt:match("^rem") or lowerTxt:match("^http") then
-        return false
-    end
-    
-    if lowerTxt:match("^[a-z]+$") then
-        return false
-    end
-    
-    return true
-end
-
-local function checkRoundReset(txt)
-    if not txt or type(txt) ~= "string" then return false end
-    local low = txt:lower()
-    if low:find("대기") or low:find("라운드") or low:find("시작") or low:find("끝") or low:find("종료") or low:find("ready") or low:find("wait") or low:find("end") or low:find("over") or low:find("finish") or low:find("win") then
-        return true
-    end
-    return false
-end
-
-local function processValue(txt)
-    if not txt or type(txt) ~= "string" then return end
-    txt = txt:gsub("^%s*(.-)%s*$", "%1")
-    
-    if checkRoundReset(txt) then
-        if currentAnswer ~= "RESET" then
-            currentAnswer = "RESET" -- 라운드 변경 시 기존 단어 기억 초기화!
-            answerLabel.Text = "정답: 라운드 대기 중..."
-        end
-    elseif isValidWord(txt) then
-        if txt ~= currentAnswer then
-            currentAnswer = txt
-            answerLabel.Text = "정답: " .. txt
-            triggerAutoInput(txt)
-        end
-    end
-end
-
-pcall(function()
-    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-        if (v:IsA("RemoteEvent") or v:IsA("UnreliableRemoteEvent")) and v.Name ~= "RemoteWordEvent" then
-            v.OnClientEvent:Connect(function(...)
-                local args = {...}
-                for _, arg in ipairs(args) do
-                    if type(arg) == "string" then
-                        processValue(arg)
-                    elseif type(arg) == "table" then
-                        for _, subArg in pairs(arg) do
-                            if type(subArg) == "string" then
-                                processValue(subArg)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-pcall(function()
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("StringValue") then
-            processValue(obj.Value)
-            obj.Changed:Connect(function(val)
-                processValue(val)
-            end)
-        end
-    end
-    
-    ReplicatedStorage.DescendantAdded:Connect(function(obj)
-        if obj:IsA("StringValue") then
-            obj.Changed:Connect(function(val)
-                processValue(val)
-            end)
-        end
-    end)
 end)
