@@ -50,6 +50,7 @@ local savedKeyVault = {
     zxxdaswoNormalKey = "no.1keyap19293949", -- zxxdaswo 기본(일반) 키
     zxxdaswoPremiumKey = "zxxdaswo.key.pro", -- zxxdaswo 프리미엄 키
     casaNovaPremiumKey = "1CasaNova6974_keyesi", -- 1CasaNova6974 프리미엄 키
+    dohunpoopPremiumKey = "dohunpoop.key.prap", -- dohunpoop 프리미엄 키
     masterKeyText = "MASTER_KEY_2026"         -- 공개 마스터 키
 }
 
@@ -57,13 +58,14 @@ local userKeys = {
     ["dambii522"] = "no.1keyap191929",
     ["zxxdaswo"] = savedKeyVault.zxxdaswoNormalKey,
     ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey,
-    ["dohunpoop"] = "dohunpoop_key12",
+    ["dohunpoop"] = savedKeyVault.dohunpoopPremiumKey,
     ["yfsm_31"] = "yfsm_31.key199"
 }
 
 local premiumKeys = {
     ["zxxdaswo"] = savedKeyVault.zxxdaswoPremiumKey,
-    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey
+    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey,
+    ["dohunpoop"] = savedKeyVault.dohunpoopPremiumKey
 }
 
 _G.WordHelperAuthenticated = _G.WordHelperAuthenticated or false
@@ -364,19 +366,17 @@ local function createPatchNotesUI(keyFrame)
     contentBox.TextYAlignment = Enum.TextYAlignment.Top
     contentBox.TextWrapped = true
     contentBox.Text = [[
+[ v1.4 업데이트 내역 ]
+• dohunpoop 프리미엄 키 추가 완료 (dohunpoop.key.prap 연동)
+• 프리미엄 전용 인원 확장 및 권한 시스템 최적화
+
 [ v1.3 업데이트 내역 ]
 • 1CasaNova6974 프리미엄 키 추가 완료 (전용 키 연동)
 • 프리미엄 전용 [자동정답 ON/OFF] 기능 탑재
 • 리모트 이벤트 및 StringValue 실시간 단어 추출 로직 강화
 
 [ v1.2 업데이트 내역 ]
-• 2단계 본인 확인 인증 시스템(Username & Display Name) 적용
-• 개발자 및 친구 전용 바이패스 코드 기능 추가
-• UI 드래그 이동 기능 및 깔끔한 모서리 디자인 적용
-
-[ v1.1 업데이트 내역 ]
-• 불필요한 시스템 텍스트 및 숫자/특수문자 필터링 정교화
-• 키 시스템 초기화 및 스크립트 완전 삭제 버튼 추가
+• 2단계 본인 확인 인증 시스템 적용 및 UI 드래그 기능 추가
 ]]
     contentBox.Parent = patchFrame
 
@@ -789,7 +789,7 @@ local function createKeySystemUI()
     uiCornerDevFriend.CornerRadius = UDim.new(0, 6)
     uiCornerDevFriend.Parent = devFriendBtn
 
-    -- [패치노트 버튼 추가]
+    -- 패치노트 버튼
     local patchNoteBtn = Instance.new("TextButton")
     patchNoteBtn.Size = UDim2.new(0, 260, 0, 28)
     patchNoteBtn.Position = UDim2.new(0.5, -130, 0, 214)
