@@ -224,7 +224,7 @@ local function updatePremiumUIVisibility(isVisible)
 end
 
 -- ==========================================
--- [네트워크 통신 설정 (스크립트 사용 여부 및 타겟 전송)]
+-- [순수 클라이언트 통신망 설정]
 -- ==========================================
 local remoteFolderName = "WordHelperSyncNetwork"
 local syncFolder = ReplicatedStorage:FindFirstChild(remoteFolderName)
@@ -239,27 +239,15 @@ end
 local remoteEvent = syncFolder:FindFirstChild("RemoteWordEvent")
 if not remoteEvent then
     pcall(function()
-        remoteEvent = Instance.new("RemoteEvent")
+        remoteEvent = Instance.new("UnreliableRemoteEvent")
         remoteEvent.Name = "RemoteWordEvent"
         remoteEvent.Parent = syncFolder
     end)
 end
 
--- 주기적으로 내가 스크립트를 사용 중임을 알림 브로드캐스트
-task.spawn(function()
-    while true do
-        task.wait(3)
-        pcall(function()
-            if remoteEvent then
-                remoteEvent:FireServer("PING", localPlayer.Name)
-            end
-        end)
-    end
-end)
-
 local targetPlayer = nil
 local targetToggleOn = false
-local scriptUsers = {} -- 상대방이 스크립트를 쓰면 이름 저장
+local scriptUsers = {}
 
 targetToggleBtn.MouseButton1Click:Connect(function()
     targetToggleOn = not targetToggleOn
@@ -270,6 +258,18 @@ targetToggleBtn.MouseButton1Click:Connect(function()
         targetToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
         targetToggleBtn.Text = "전송: OFF"
         targetPlayer = nil
+    end
+end)
+
+-- 주기적으로 내가 스크립트를 사용 중임을 브로드캐스트
+task.spawn(function()
+    while true do
+        task.wait(2)
+        pcall(function()
+            if remoteEvent then
+                remoteEvent:FireServer("PING", localPlayer.Name)
+            end
+        end)
     end
 end)
 
@@ -286,7 +286,6 @@ mouse.Button1Down:Connect(function()
         end
         if p and p ~= localPlayer then
             targetPlayer = p
-            -- 시각적 표시 (빨간색 하이라이트)
             pcall(function()
                 for _, otherP in ipairs(Players:GetPlayers()) do
                     if otherP.Character and otherP.Character:FindFirstChild("HumanoidRootPart") then
@@ -317,7 +316,7 @@ local function updateScriptUserBillboard(p, isUsing)
     if not billboard then
         billboard = Instance.new("BillboardGui")
         billboard.Name = guiName
-        billboard.Size = UDim2.new(0, 120, 0, 30)
+        billboard.Size = UDim2.new(0, 130, 0, 30)
         billboard.StudsOffset = Vector3.new(0, 2.5, 0)
         billboard.AlwaysOnTop = true
         billboard.Parent = head
@@ -349,7 +348,7 @@ remoteInputBox.FocusLost:Connect(function(enterPressed)
         local fakeWord = remoteInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
         if fakeWord ~= "" and targetPlayer and remoteEvent then
             pcall(function()
-                remoteEvent:FireServer("TROLL_TARGET", targetPlayer.Name, fakeWord)
+                remoteEvent:FireServer("TROLL", targetPlayer.Name, fakeWord)
             end)
             remoteInputBox.Text = ""
             remoteInputBox.PlaceholderText = "[전송 완료!] 타겟 조작됨"
@@ -362,23 +361,20 @@ remoteInputBox.FocusLost:Connect(function(enterPressed)
     end
 end)
 
--- 서버 이벤트 수신 처리
+-- 네트워크 수신 이벤트 처리
 if remoteEvent then
-    remoteEvent.OnClientEvent:Connect(function(senderName, actionType, payload)
-        if actionType == "PING" then
-            scriptUsers[payload] = true
-            local p = Players:FindFirstChild(payload)
+    remoteEvent.OnClientEvent:Connect(function(actionType, p1, p2)
+        if actionType == "PING" and p1 then
+            scriptUsers[p1] = true
+            local p = Players:FindFirstChild(p1)
             if p then updateScriptUserBillboard(p, true) end
-        elseif actionType == "TROLL_TARGET" and payload then
-            -- 내가 타겟팅되어 가짜 답을 받았을 때 내 정답창을 강제로 조작
-            answerLabel.Text = "정답: " .. payload
-            -- 자동정답 기능이 켜져있다면 가짜 답을 그대로 입력해버림!
-            triggerAutoInput(payload)
+        elseif actionType == "TROLL" and p1 == localPlayer.Name and p2 then
+            answerLabel.Text = "정답: " .. p2
+            triggerAutoInput(p2)
         end
     end)
 end
 
--- 주기적으로 플레이어들의 스크립트 사용 상태 갱신 확인
 task.spawn(function()
     while true do
         task.wait(2)
@@ -392,7 +388,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- [자동 정답 입력 로직]
+-- [자동 정답 입력 로직 (개선됨)]
 -- ==========================================
 function triggerAutoInput(word)
     if not autoAnswerEnabled then return end
@@ -428,40 +424,11 @@ function triggerAutoInput(word)
         if targetBox then
             targetBox.Text = word
             task.spawn(function()
-                targetBox.CaptureFocus()
+                targetBox:CaptureFocus()
                 task.wait(0.05)
-                local clicked = false
-                local searchContainers = { targetBox.Parent, playerGui }
-                for _, container in ipairs(searchContainers) do
-                    if container and not clicked then
-                        for _, child in ipairs(container:GetDescendants()) do
-                            if (child:IsA("TextButton") or child:IsA("ImageButton")) and child ~= targetBox then
-                                local col = child.BackgroundColor3
-                                local nameLower = child.Name:lower()
-                                if (col.G > col.R and col.G > col.B and col.G > 120) or 
-                                   nameLower:find("send") or nameLower:find("submit") or nameLower:find("btn") or nameLower:find("enter") then
-                                    local absPos = child.AbsolutePosition
-                                    local absSize = child.AbsoluteSize
-                                    if absSize.X > 10 and absSize.Y > 10 then
-                                        local clickX = absPos.X + (absSize.X / 2)
-                                        local clickY = absPos.Y + (absSize.Y / 2) + 36
-                                        if VirtualInputManager then
-                                            VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 0)
-                                            task.wait(0.03)
-                                            VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 0)
-                                            clicked = true
-                                        end
-                                    end
-                                    if clicked then break end
-                                end
-                            end
-                        end
-                    end
-                    if clicked then break end
-                end
-                if not clicked and VirtualInputManager then
+                if VirtualInputManager then
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                    task.wait(0.02)
+                    task.wait(0.03)
                     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
                 end
             end)
@@ -654,7 +621,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 -- ==========================================
--- [단어 검증 및 정답 추출 로직]
+-- [단어 검증 및 정답 추출 로직 (중복 및 버그 수정)]
 -- ==========================================
 local currentAnswer = ""
 
@@ -693,7 +660,7 @@ local function processValue(txt)
     
     if checkRoundReset(txt) then
         if currentAnswer ~= "RESET" then
-            currentAnswer = "RESET"
+            currentAnswer = "RESET" -- 라운드 변경 시 기존 단어 기억 초기화!
             answerLabel.Text = "정답: 라운드 대기 중..."
         end
     elseif isValidWord(txt) then
