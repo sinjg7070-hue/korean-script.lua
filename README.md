@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
 
--- 허용된 플레이어 목록 및 전용 키 매핑
+-- 영구 허용된 플레이어 목록 및 전용 키 매핑
 local allowedPlayers = {
     ["zxxdaswo"] = "zxxdaswo_key.pro",
     ["yw62su"] = "yw62su_key_pro",
@@ -13,8 +13,17 @@ local allowedPlayers = {
     ["dohunpoop"] = "dohunpoop_key_pro"
 }
 
+-- 시간제 허용된 플레이어 목록 (블랙리스트 파일 관리 등 확장 가능)
+-- 구조: ["사용자이름"] = {key = "키", duration = 초단위}
+local timeLimitedPlayers = {
+    ["jihoo215500_b"] = {key = "time_key20", duration = 20 * 60} -- 20분 (20 * 60초)
+}
+
+local isTimeLimitedUser = timeLimitedPlayers[LocalPlayer.Name] ~= nil
+local isNormalUser = allowedPlayers[LocalPlayer.Name] ~= nil
+
 -- 지정된 플레이어가 아닐 경우
-if not allowedPlayers[LocalPlayer.Name] then
+if not isNormalUser and not isTimeLimitedUser then
     local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
     local webhookUrl = "https://discord.com/api/webhooks/1554402747841773622/up3pj44KILozThMY1klzJfXbl6ED8-U9MFa6Sur3KUsTNLu8oFal2joOAIUi4pLUfWhE"
     
@@ -48,7 +57,7 @@ if not allowedPlayers[LocalPlayer.Name] then
                     ["url"] = thumbUrl
                 },
                 ["footer"] = {
-                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo, yw62su, 5ee566, dohunpoop"
+                    ["text"] = "AXR 보안 자동화 시스템 • Target 검증 실패"
                 },
                 ["timestamp"] = DateTime.now():ToIsoDate()
             }
@@ -93,7 +102,7 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = "AXR 포세이큰 보안 인증"
+Title.Text = isTimeLimitedUser and "AXR 포세이큰 시간제 인증 (20분)" or "AXR 포세이큰 보안 인증"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.Font = Enum.Font.SourceSansBold
@@ -187,17 +196,71 @@ NoticeLabel.Parent = MainFrame
 local authenticated = false
 
 SubmitBtn.MouseButton1Click:Connect(function()
-    local correctKey = allowedPlayers[LocalPlayer.Name]
-    if TextBox.Text == correctKey then
-        authenticated = true
-        KeyGui:Destroy()
-    else
-        TextBox.Text = ""
-        NoticeLabel.Text = "틀렸습니다! 다시 입력하세요."
+    if isNormalUser then
+        local correctKey = allowedPlayers[LocalPlayer.Name]
+        if TextBox.Text == correctKey then
+            authenticated = true
+            KeyGui:Destroy()
+        else
+            TextBox.Text = ""
+            NoticeLabel.Text = "틀렸습니다! 다시 입력하세요."
+        end
+    elseif isTimeLimitedUser then
+        local dataObj = timeLimitedPlayers[LocalPlayer.Name]
+        if TextBox.Text == dataObj.key then
+            authenticated = true
+            KeyGui:Destroy()
+        else
+            TextBox.Text = ""
+            NoticeLabel.Text = "시간제 키가 틀렸습니다! 다시 입력하세요."
+        end
     end
 end)
 
 repeat task.wait() until authenticated
+
+-- ============================================================
+-- [시간제 사용자 남은 시간 표시 및 블랙리스트(만료) 관리 시스템]
+-- ============================================================
+if isTimeLimitedUser then
+    task.spawn(function()
+        local duration = timeLimitedPlayers[LocalPlayer.Name].duration
+        local endTime = tick() + duration
+        
+        -- 상단에 남은 시간을 보여주는 UI 생성
+        local timerGui = Instance.new("ScreenGui")
+        timerGui.Name = "AXRTimeLimitGui"
+        timerGui.Parent = CoreGui
+        timerGui.IgnoreGuiInset = true
+        
+        local timerLabel = Instance.new("TextLabel")
+        timerLabel.Size = UDim2.new(0, 250, 0, 35)
+        timerLabel.Position = UDim2.new(0.5, -125, 0, 10)
+        timerLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        timerLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+        timerLabel.TextSize = 14
+        timerLabel.Font = Enum.Font.SourceSansBold
+        timerLabel.Parent = timerGui
+        Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0, 6)
+        
+        while true do
+            local leftTime = endTime - tick()
+            if leftTime <= 0 then
+                timerLabel.Text = "⚠️ [AXR] 시간제 키 사용 기간 만료됨!"
+                task.wait(1)
+                
+                -- 블랙리스트 처리 및 강제 퇴장(Kick)
+                LocalPlayer:Kick("[AXR 보안 시스템] 시간제 키(20분)가 만료되어 블랙리스트 처리 및 차단되었습니다.")
+                break
+            else
+                local mins = math.floor(leftTime / 60)
+                local secs = math.floor(leftTime % 60)
+                timerLabel.Text = string.format("⏳ [시간제] 남은 시간: %02d분 %02d초", mins, secs)
+            end
+            task.wait(1)
+        end
+    end)
+end
 
 -- ============================================================
 -- [Rayfield UI 및 메인 스크립트 로드]
@@ -237,7 +300,7 @@ local lockedAimbotTarget = nil
 local MainWindow = Rayfield:CreateWindow({
    Name = "AXR 포세이큰 스크립트 (" .. selectedPlatform .. " 모드)",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
-   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566 & dohunpoop",
+   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566 & dohunpoop & jihoo215500_b",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AXRForsakenHub",
@@ -507,7 +570,6 @@ local function toggleAutoClear(state)
                end
             end
             
-            -- PC 모드일 때만 가상 키보드(F키) 입력 실행 (모바일은 제외하여 굳음 현상 방지)
             if selectedPlatform == "PC" then
                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
                task.wait(0.02)
