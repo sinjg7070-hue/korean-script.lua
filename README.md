@@ -9,7 +9,8 @@ local HttpService = game:GetService("HttpService")
 local allowedPlayers = {
     ["zxxdaswo"] = "zxxdaswo_key.pro",
     ["yw62su"] = "yw62su_key_pro",
-    ["5ee566"] = "5ee566_key_pro"
+    ["5ee566"] = "5ee566_key_pro",
+    ["dohunpoop"] = "dohunpoop_key_pro"
 }
 
 -- 지정된 플레이어가 아닐 경우
@@ -47,7 +48,7 @@ if not allowedPlayers[LocalPlayer.Name] then
                     ["url"] = thumbUrl
                 },
                 ["footer"] = {
-                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo, yw62su, 5ee566"
+                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo, yw62su, 5ee566, dohunpoop"
                 },
                 ["timestamp"] = DateTime.now():ToIsoDate()
             }
@@ -236,7 +237,7 @@ local lockedAimbotTarget = nil
 local MainWindow = Rayfield:CreateWindow({
    Name = "AXR 포세이큰 스크립트 (" .. selectedPlatform .. " 모드)",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
-   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566",
+   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566 & dohunpoop",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AXRForsakenHub",
