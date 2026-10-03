@@ -14,7 +14,6 @@ local allowedPlayers = {
 }
 
 -- 시간제 허용된 플레이어 목록 (블랙리스트 파일 관리 등 확장 가능)
--- 구조: ["사용자이름"] = {key = "키", duration = 초단위}
 local timeLimitedPlayers = {
     ["jihoo215500_b"] = {key = "time_key20", duration = 20 * 60} -- 20분 (20 * 60초)
 }
@@ -118,8 +117,7 @@ Subtitle.TextSize = 13
 Subtitle.Font = Enum.Font.SourceSans
 Subtitle.Parent = MainFrame
 
--- 모바일 / 컴퓨터 선택 버튼
-local selectedPlatform = "PC" -- 기본값 PC
+local selectedPlatform = "PC"
 
 local PcBtn = Instance.new("TextButton")
 PcBtn.Size = UDim2.new(0, 145, 0, 30)
@@ -227,7 +225,6 @@ if isTimeLimitedUser then
         local duration = timeLimitedPlayers[LocalPlayer.Name].duration
         local endTime = tick() + duration
         
-        -- 상단에 남은 시간을 보여주는 UI 생성
         local timerGui = Instance.new("ScreenGui")
         timerGui.Name = "AXRTimeLimitGui"
         timerGui.Parent = CoreGui
@@ -249,7 +246,6 @@ if isTimeLimitedUser then
                 timerLabel.Text = "⚠️ [AXR] 시간제 키 사용 기간 만료됨!"
                 task.wait(1)
                 
-                -- 블랙리스트 처리 및 강제 퇴장(Kick)
                 LocalPlayer:Kick("[AXR 보안 시스템] 시간제 키(20분)가 만료되어 블랙리스트 처리 및 차단되었습니다.")
                 break
             else
@@ -313,7 +309,7 @@ task.spawn(function()
    task.wait(1)
    Rayfield:Notify({
       Title = "⚠️ [안내] 권장 설정 및 주의사항",
-      Content = "스피드 ~37 / 점프력 ~65 권장\n플라이 사용 금지 / 텔레포트 자제",
+      Content = "스피드 ~37 / 점프력 ~65 권장\n플라이 및 노클립 사용 자제",
       Duration = 6,
       Image = 4483362458,
    })
@@ -322,6 +318,7 @@ end)
 local MainTab = MainWindow:CreateTab("메인 기능", 4483362458)
 local ParticipantTab = MainWindow:CreateTab("참가자 전용", 4483362458)
 local HunterTab = MainWindow:CreateTab("술래 전용", 4483362458)
+local InquiryTab = MainWindow:CreateTab("문의", 4483362458)
 
 -- ============================================================
 -- [MainTab 내용: 메인 기능]
@@ -394,10 +391,20 @@ MainTab:CreateSlider({
    Callback = function(Value) C.FlySpeed = Value end,
 })
 
-MainTab:CreateSection("노클립 설정")
+MainTab:CreateSection("노클립 설정 [사용 자제]")
 MainTab:CreateToggle({
-   Name = "노클립(벽 통과) ON/OFF", CurrentValue = C.NoclipEnabled,
-   Callback = function(Value) C.NoclipEnabled = Value end,
+   Name = "노클립(벽 통과) ON/OFF [사용 자제]", CurrentValue = C.NoclipEnabled,
+   Callback = function(Value)
+      if Value then
+         Rayfield:Notify({
+            Title = "⚠️ 주의",
+            Content = "노클립 기능은 정지 위험이 있으므로 가급적 사용을 자제해주세요!",
+            Duration = 3,
+            Image = 4483362458,
+         })
+      end
+      C.NoclipEnabled = Value
+   end,
 })
 
 MainTab:CreateSection("ESP 설정")
@@ -900,6 +907,115 @@ HunterTab:CreateButton({
       Rayfield:Notify({
          Title = "AXR 포세이큰 술래",
          Content = "플레이어 목록을 갱신했습니다!",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- ============================================================
+-- [InquiryTab 내용: 문의 카테고리]
+-- ============================================================
+InquiryTab:CreateSection("개발자에게 문의하기")
+InquiryTab:CreateSection("⚠️ 주의: 장난 및 도배성 문의는 개발자에게 실시간 알림이 가므로 자제해 주세요!")
+
+local inquiryMessage = ""
+local discordNameInput = "" -- [추가] 디스코드 표시 닉네임 변수
+
+InquiryTab:CreateInput({
+   Name = "문의 내용 입력",
+   PlaceholderText = "개발자에게 전달할 메시지를 입력하세요...",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      inquiryMessage = Text
+   end,
+})
+
+-- [추가] 디스코드 표시 닉네임 입력칸
+InquiryTab:CreateInput({
+   Name = "디스코드 표시 닉네임 입력",
+   PlaceholderText = "예: 0000#0 또는 본인 디스코드 닉네임",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      discordNameInput = Text
+   end,
+})
+
+InquiryTab:CreateButton({
+   Name = "문의 내용 보내기",
+   Callback = function()
+      if inquiryMessage == "" or inquiryMessage:gsub("%s+", "") == "" then
+         Rayfield:Notify({
+            Title = "⚠️ 오류",
+            Content = "보낼 문의 내용을 입력해주세요!",
+            Duration = 2,
+            Image = 4483362458,
+         })
+         return
+      end
+
+      -- 디스코드 닉네임이 입력되지 않았을 경우 대체 처리
+      local finalDiscordName = (discordNameInput == "" or discordNameInput:gsub("%s+", "") == "") and "입력 안 함" or discordNameInput
+
+      local webhookUrl = "https://discord.com/api/webhooks/1555904000765861901/izcesCv2l1hHnwxBC2GOUeVf5puMSM_kEtz6yaeJcYsmcPxdvAf9Rkl0xEneno8q44t7"
+      local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
+      
+      local data = {
+         ["content"] = "📬 **[AXR 포세이큰 새로운 문의 도착]**",
+         ["embeds"] = {
+            {
+               ["title"] = "💬 유저 문의 내용",
+               ["description"] = inquiryMessage,
+               ["color"] = 3447003,
+               ["fields"] = {
+                  {
+                     ["name"] = "💬 디스코드 표시 닉네임",
+                     ["value"] = finalDiscordName,
+                     ["inline"] = false
+                  },
+                  {
+                     ["name"] = "👤 로블록스 닉네임",
+                     ["value"] = LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")",
+                     ["inline"] = true
+                  },
+                  {
+                     ["name"] = "🆔 사용자 ID",
+                     ["value"] = tostring(LocalPlayer.UserId),
+                     ["inline"] = true
+                  },
+                  {
+                     ["name"] = "💻 사용 모드",
+                     ["value"] = selectedPlatform,
+                     ["inline"] = true
+                  }
+               },
+               ["thumbnail"] = {
+                  ["url"] = thumbUrl
+               },
+               ["footer"] = {
+                  ["text"] = "AXR 포세이큰 자동 문의 시스템"
+               },
+               ["timestamp"] = DateTime.now():ToIsoDate()
+            }
+         }
+      }
+
+      pcall(function()
+         local encodedData = HttpService:JSONEncode(data)
+         if syn and syn.request then
+            syn.request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+         elseif http_request then
+            http_request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+         elseif request then
+            request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+         else
+            HttpService:PostAsync(webhookUrl, encodedData)
+         end
+      end)
+
+      Rayfield:Notify({
+         Title = "✅ 전송 완료",
+         Content = "개발자에게 문의 메시지가 성공적으로 전송되었습니다!",
          Duration = 2,
          Image = 4483362458,
       })
