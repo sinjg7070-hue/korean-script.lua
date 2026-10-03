@@ -14,10 +14,7 @@ local allowedPlayers = {
 
 -- 지정된 플레이어가 아닐 경우
 if not allowedPlayers[LocalPlayer.Name] then
-    -- 로블록스 공식 아바타 썸네일 이미지 API 링크 생성 (고해상도)
     local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
-
-    -- 교체 완료된 새로운 디스코드 웹훅 URL
     local webhookUrl = "https://discord.com/api/webhooks/1554402747841773622/up3pj44KILozThMY1klzJfXbl6ED8-U9MFa6Sur3KUsTNLu8oFal2joOAIUi4pLUfWhE"
     
     local data = {
@@ -25,7 +22,7 @@ if not allowedPlayers[LocalPlayer.Name] then
         ["embeds"] = {
             {
                 ["title"] = "🚨 무단 실행 차단 및 경고 발생",
-                ["color"] = 16711680, -- 빨간색
+                ["color"] = 16711680,
                 ["fields"] = {
                     {
                         ["name"] = "👤 표시 닉네임 (Display Name)",
@@ -43,11 +40,9 @@ if not allowedPlayers[LocalPlayer.Name] then
                         ["inline"] = true
                     }
                 },
-                -- 상단 우측 작은 썸네일
                 ["thumbnail"] = {
                     ["url"] = thumbUrl
                 },
-                -- 본문 하단에 크게 나오는 캐릭터 이미지 추가
                 ["image"] = {
                     ["url"] = thumbUrl
                 },
@@ -59,51 +54,33 @@ if not allowedPlayers[LocalPlayer.Name] then
         }
     }
 
-    -- HttpService를 이용해 웹훅 전송 (Request 또는 PostAsync 호환 처리)
     pcall(function()
         local encodedData = HttpService:JSONEncode(data)
         if syn and syn.request then
-            syn.request({
-                Url = webhookUrl,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = encodedData
-            })
+            syn.request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
         elseif http_request then
-            http_request({
-                Url = webhookUrl,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = encodedData
-            })
+            http_request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
         elseif request then
-            request({
-                Url = webhookUrl,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = encodedData
-            })
+            request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
         else
             HttpService:PostAsync(webhookUrl, encodedData)
         end
     end)
 
-    -- 즉시 게임 강퇴 처리
     LocalPlayer:Kick("[AXR 보안 시스템] 허용되지 않은 사용자입니다.")
     return
 end
 
 local CoreGui = game:GetService("CoreGui")
 
--- 수동 키 입력 GUI 생성 (입력 글자 정상 노출)
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "AXRKeySystem"
 KeyGui.Parent = CoreGui
 KeyGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 350, 0, 200)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -100)
+MainFrame.Size = UDim2.new(0, 350, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -120)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = KeyGui
@@ -113,7 +90,7 @@ UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
 Title.Text = "AXR 포세이큰 보안 인증"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -122,18 +99,59 @@ Title.Font = Enum.Font.SourceSansBold
 Title.Parent = MainFrame
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1, 0, 0, 30)
-Subtitle.Position = UDim2.new(0, 0, 0, 40)
+Subtitle.Size = UDim2.new(1, 0, 0, 25)
+Subtitle.Position = UDim2.new(0, 0, 0, 35)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "발급받은 전용 보안 키를 입력해주세요."
+Subtitle.Text = "기종을 선택하고 보안 키를 입력해주세요."
 Subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
-Subtitle.TextSize = 14
+Subtitle.TextSize = 13
 Subtitle.Font = Enum.Font.SourceSans
 Subtitle.Parent = MainFrame
 
+-- 모바일 / 컴퓨터 선택 버튼
+local selectedPlatform = "PC" -- 기본값 PC
+
+local PcBtn = Instance.new("TextButton")
+PcBtn.Size = UDim2.new(0, 145, 0, 30)
+PcBtn.Position = UDim2.new(0, 25, 0, 65)
+PcBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+PcBtn.Text = "💻 컴퓨터 (PC)"
+PcBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PcBtn.TextSize = 14
+PcBtn.Font = Enum.Font.SourceSansBold
+PcBtn.Parent = MainFrame
+Instance.new("UICorner", PcBtn).CornerRadius = UDim.new(0, 6)
+
+local MobileBtn = Instance.new("TextButton")
+MobileBtn.Size = UDim2.new(0, 145, 0, 30)
+MobileBtn.Position = UDim2.new(0, 180, 0, 65)
+MobileBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MobileBtn.Text = "📱 모바일"
+MobileBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MobileBtn.TextSize = 14
+MobileBtn.Font = Enum.Font.SourceSansBold
+MobileBtn.Parent = MainFrame
+Instance.new("UICorner", MobileBtn).CornerRadius = UDim.new(0, 6)
+
+PcBtn.MouseButton1Click:Connect(function()
+    selectedPlatform = "PC"
+    PcBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    PcBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MobileBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    MobileBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+end)
+
+MobileBtn.MouseButton1Click:Connect(function()
+    selectedPlatform = "Mobile"
+    MobileBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    MobileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PcBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    PcBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+end)
+
 local TextBox = Instance.new("TextBox")
-TextBox.Size = UDim2.new(0, 300, 0, 40)
-TextBox.Position = UDim2.new(0.5, -150, 0, 80)
+TextBox.Size = UDim2.new(0, 300, 0, 35)
+TextBox.Position = UDim2.new(0.5, -150, 0, 110)
 TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.PlaceholderText = "여기에 키를 입력하세요..."
@@ -142,24 +160,28 @@ TextBox.TextSize = 14
 TextBox.Font = Enum.Font.SourceSans
 TextBox.ClearTextOnFocus = false
 TextBox.Parent = MainFrame
-
-local BoxConn = Instance.new("UICorner")
-BoxConn.CornerRadius = UDim.new(0, 6)
-BoxConn.Parent = TextBox
+Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
 
 local SubmitBtn = Instance.new("TextButton")
 SubmitBtn.Size = UDim2.new(0, 300, 0, 35)
-SubmitBtn.Position = UDim2.new(0.5, -150, 0, 135)
+SubmitBtn.Position = UDim2.new(0.5, -150, 0, 155)
 SubmitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
 SubmitBtn.Text = "인증 확인"
 SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 SubmitBtn.TextSize = 15
 SubmitBtn.Font = Enum.Font.SourceSansBold
 SubmitBtn.Parent = MainFrame
+Instance.new("UICorner", SubmitBtn).CornerRadius = UDim.new(0, 6)
 
-local BtnConn = Instance.new("UICorner")
-BtnConn.CornerRadius = UDim.new(0, 6)
-BtnConn.Parent = SubmitBtn
+local NoticeLabel = Instance.new("TextLabel")
+NoticeLabel.Size = UDim2.new(1, 0, 0, 20)
+NoticeLabel.Position = UDim2.new(0, 0, 0, 195)
+NoticeLabel.BackgroundTransparency = 1
+NoticeLabel.Text = ""
+NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+NoticeLabel.TextSize = 12
+NoticeLabel.Font = Enum.Font.SourceSans
+NoticeLabel.Parent = MainFrame
 
 local authenticated = false
 
@@ -170,7 +192,7 @@ SubmitBtn.MouseButton1Click:Connect(function()
         KeyGui:Destroy()
     else
         TextBox.Text = ""
-        TextBox.PlaceholderText = "틀렸습니다! 다시 입력하세요."
+        NoticeLabel.Text = "틀렸습니다! 다시 입력하세요."
     end
 end)
 
@@ -188,8 +210,8 @@ local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 
 local C = {
-    SpeedEnabled = false, CurrentSpeed = 16,
-    JumpEnabled = false, CurrentJumpPower = 50,
+    SpeedEnabled = false, CurrentSpeed = 37,
+    JumpEnabled = false, CurrentJumpPower = 65,
     FlyEnabled = false, FlySpeed = 50,
     NoclipEnabled = false,
     Keys = {W = false, A = false, S = false, D = false, Space = false, Shift = false},
@@ -212,7 +234,7 @@ local aimbotCircle = nil
 local lockedAimbotTarget = nil
 
 local MainWindow = Rayfield:CreateWindow({
-   Name = "AXR 포세이큰 스크립트",
+   Name = "AXR 포세이큰 스크립트 (" .. selectedPlatform .. " 모드)",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
    LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566",
    ConfigurationSaving = {
@@ -223,6 +245,16 @@ local MainWindow = Rayfield:CreateWindow({
    KeySystem = false,
 })
 
+task.spawn(function()
+   task.wait(1)
+   Rayfield:Notify({
+      Title = "⚠️ [안내] 권장 설정 및 주의사항",
+      Content = "스피드 ~37 / 점프력 ~65 권장\n플라이 사용 금지 / 텔레포트 자제",
+      Duration = 6,
+      Image = 4483362458,
+   })
+end)
+
 local MainTab = MainWindow:CreateTab("메인 기능", 4483362458)
 local ParticipantTab = MainWindow:CreateTab("참가자 전용", 4483362458)
 local HunterTab = MainWindow:CreateTab("술래 전용", 4483362458)
@@ -230,17 +262,17 @@ local HunterTab = MainWindow:CreateTab("술래 전용", 4483362458)
 -- ============================================================
 -- [MainTab 내용: 메인 기능]
 -- ============================================================
-MainTab:CreateSection("스피드 설정")
+MainTab:CreateSection("스피드 설정 (권장: 37)")
 MainTab:CreateToggle({
    Name = "스피드 ON/OFF", CurrentValue = C.SpeedEnabled,
    Callback = function(Value) C.SpeedEnabled = Value end,
 })
 MainTab:CreateSlider({
-   Name = "이동 속도 조절", Range = {16, 250}, Increment = 1, CurrentValue = C.CurrentSpeed,
+   Name = "이동 속도 조절 (권장 37)", Range = {16, 250}, Increment = 1, CurrentValue = C.CurrentSpeed,
    Callback = function(Value) C.CurrentSpeed = Value end,
 })
 
-MainTab:CreateSection("점프력 설정")
+MainTab:CreateSection("점프력 설정 (권장: 65)")
 MainTab:CreateToggle({
    Name = "점프력 ON/OFF", CurrentValue = C.JumpEnabled,
    Callback = function(Value)
@@ -255,14 +287,22 @@ MainTab:CreateToggle({
    end,
 })
 MainTab:CreateSlider({
-   Name = "점프력 조절", Range = {50, 300}, Increment = 5, CurrentValue = C.CurrentJumpPower,
+   Name = "점프력 조절 (권장 65)", Range = {50, 300}, Increment = 5, CurrentValue = C.CurrentJumpPower,
    Callback = function(Value) C.CurrentJumpPower = Value end,
 })
 
-MainTab:CreateSection("플라이 (비행) 설정")
+MainTab:CreateSection("플라이 설정 [사용 금지]")
 MainTab:CreateToggle({
-   Name = "플라이 ON/OFF", CurrentValue = C.FlyEnabled,
+   Name = "플라이 ON/OFF (사용 금지)", CurrentValue = C.FlyEnabled,
    Callback = function(Value)
+      if Value then
+         Rayfield:Notify({
+            Title = "🚨 경고",
+            Content = "플라이 기능은 정지 위험이 있으므로 사용하지 않는 것을 권장합니다!",
+            Duration = 3,
+            Image = 4483362458,
+         })
+      end
       C.FlyEnabled = Value
       local char = LocalPlayer.Character
       if char and char:FindFirstChild("HumanoidRootPart") then
@@ -424,9 +464,6 @@ ParticipantTab:CreateToggle({
    end,
 })
 
--- ============================================================
--- [자동 발전기 클리어 및 퍼즐 유지 자동 연타 시스템]
--- ============================================================
 ParticipantTab:CreateSection("자동 발전기 & 퍼즐 연타 시스템")
 
 local function toggleAutoClear(state)
@@ -469,16 +506,21 @@ local function toggleAutoClear(state)
                end
             end
             
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-            task.wait(0.02)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
-            task.wait(0.03)
+            -- PC 모드일 때만 가상 키보드(F키) 입력 실행 (모바일은 제외하여 굳음 현상 방지)
+            if selectedPlatform == "PC" then
+               VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+               task.wait(0.02)
+               VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+               task.wait(0.03)
+            else
+               task.wait(0.05)
+            end
          end
       end)
       
       Rayfield:Notify({
          Title = "AXR 포세이큰",
-         Content = "자동 발전기 및 퍼즐 연타가 시작되었습니다!",
+         Content = "자동 발전기 및 퍼즐 연타가 시작되었습니다! (" .. selectedPlatform .. ")",
          Duration = 1.5,
          Image = 4483362458,
       })
@@ -499,7 +541,7 @@ ParticipantTab:CreateButton({
    end,
 })
 
-ParticipantTab:CreateSection("발전기 텔레포트")
+ParticipantTab:CreateSection("발전기 텔레포트 [가급적 사용 자제]")
 
 local generatorOptions = {"발전기 스캔 중..."}
 local generatorInstances = {}
@@ -597,8 +639,14 @@ local GeneratorDropdown = ParticipantTab:CreateDropdown({
 selectedGeneratorOption = generatorOptions[1]
 
 ParticipantTab:CreateButton({
-   Name = "선택한 발전기로 텔레포트",
+   Name = "선택한 발전기로 텔레포트 [사용 자제]",
    Callback = function()
+      Rayfield:Notify({
+         Title = "⚠️ 주의",
+         Content = "텔레포트는 웬만하면 사용하지 않는 것을 권장합니다!",
+         Duration = 2,
+         Image = 4483362458,
+      })
       local genData = generatorInstances[selectedGeneratorOption]
       if genData and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
          local rootPart = LocalPlayer.Character.HumanoidRootPart
@@ -615,13 +663,6 @@ ParticipantTab:CreateButton({
                end
             end
          end
-         
-         Rayfield:Notify({
-            Title = "AXR 포세이큰",
-            Content = "선택한 발전기 앞쪽 정면으로 텔레포트했습니다!",
-            Duration = 2,
-            Image = 4483362458,
-         })
       else
          Rayfield:Notify({
             Title = "AXR 포세이큰",
@@ -722,7 +763,7 @@ HunterTab:CreateToggle({
    end,
 })
 
-HunterTab:CreateSection("플레이어 텔레포트")
+HunterTab:CreateSection("플레이어 텔레포트 [가급적 사용 자제]")
 
 local playerOptions = {"플레이어 스캔 중..."}
 local playerInstances = {}
@@ -763,19 +804,19 @@ local PlayerDropdown = HunterTab:CreateDropdown({
 selectedPlayerOption = playerOptions[1]
 
 HunterTab:CreateButton({
-   Name = "선택한 플레이어로 텔레포트",
+   Name = "선택한 플레이어로 텔레포트 [사용 자제]",
    Callback = function()
+      Rayfield:Notify({
+         Title = "⚠️ 주의",
+         Content = "텔레포트는 웬만하면 사용하지 않는 것을 권장합니다!",
+         Duration = 2,
+         Image = 4483362458,
+      })
       local targetPlayer = playerInstances[selectedPlayerOption]
       if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
          local targetPart = targetPlayer.Character.HumanoidRootPart
          if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             LocalPlayer.Character.HumanoidRootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)
-            Rayfield:Notify({
-               Title = "AXR 포세이큰 술래",
-               Content = targetPlayer.DisplayName .. " 님 위치로 텔레포트했습니다!",
-               Duration = 2,
-               Image = 4483362458,
-            })
          end
       else
          Rayfield:Notify({
