@@ -1,893 +1,930 @@
--- ==========================================
--- [단어 맞히기 헬퍼 - 패치노트 포함 통합 버전]
--- ==========================================
-local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- ============================================================
+-- [디스코드 웹훅 경고 및 강력한 닉네임 검증 시스템]
+-- ============================================================
 local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local HttpService = game:GetService("HttpService")
+
+-- 지정된 플레이어가 아닐 경우
+if LocalPlayer.Name ~= "zxxdaswo" then
+    -- 로블록스 공식 아바타 썸네일 이미지 API 링크 생성 (고해상도)
+    local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
+
+    -- 교체 완료된 새로운 디스코드 웹훅 URL
+    local webhookUrl = "https://discord.com/api/webhooks/1554402747841773622/up3pj44KILozThMY1klzJfXbl6ED8-U9MFa6Sur3KUsTNLu8oFal2joOAIUi4pLUfWhE"
+    
+    local data = {
+        ["content"] = "@here **[AXR 보안 시스템 경고]** 허용되지 않은 사용자가 스크립트 실행을 시도했습니다!",
+        ["embeds"] = {
+            {
+                ["title"] = "🚨 무단 실행 차단 및 경고 발생",
+                ["color"] = 16711680, -- 빨간색
+                ["fields"] = {
+                    {
+                        ["name"] = "👤 표시 닉네임 (Display Name)",
+                        ["value"] = LocalPlayer.DisplayName,
+                        ["inline"] = true
+                    },
+                    {
+                        ["name"] = "🆔 진짜 닉네임 (Username)",
+                        ["value"] = "@" .. LocalPlayer.Name,
+                        ["inline"] = true
+                    },
+                    {
+                        ["name"] = "🔢 고유 ID (User ID)",
+                        ["value"] = tostring(LocalPlayer.UserId),
+                        ["inline"] = true
+                    }
+                },
+                -- 상단 우측 작은 썸네일
+                ["thumbnail"] = {
+                    ["url"] = thumbUrl
+                },
+                -- 본문 하단에 크게 나오는 캐릭터 이미지 추가
+                ["image"] = {
+                    ["url"] = thumbUrl
+                },
+                ["footer"] = {
+                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo"
+                },
+                ["timestamp"] = DateTime.now():ToIsoDate()
+            }
+        }
+    }
+
+    -- HttpService를 이용해 웹훅 전송 (Request 또는 PostAsync 호환 처리)
+    pcall(function()
+        local encodedData = HttpService:JSONEncode(data)
+        if syn and syn.request then
+            syn.request({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = encodedData
+            })
+        elseif http_request then
+            http_request({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = encodedData
+            })
+        elseif request then
+            request({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = encodedData
+            })
+        else
+            HttpService:PostAsync(webhookUrl, encodedData)
+        end
+    end)
+
+    -- 즉시 게임 강퇴 처리
+    LocalPlayer:Kick("[AXR 보안 시스템] 허용되지 않은 사용자입니다.")
+    return
+end
+
+local CoreGui = game:GetService("CoreGui")
+
+-- 수동 키 입력 GUI 생성 (입력 글자 정상 노출)
+local KeyGui = Instance.new("ScreenGui")
+KeyGui.Name = "AXRKeySystem"
+KeyGui.Parent = CoreGui
+KeyGui.IgnoreGuiInset = true
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = KeyGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundTransparency = 1
+Title.Text = "AXR 포세이큰 보안 인증"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, 0, 0, 30)
+Subtitle.Position = UDim2.new(0, 0, 0, 40)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "발급받은 전용 보안 키를 입력해주세요."
+Subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+Subtitle.TextSize = 14
+Subtitle.Font = Enum.Font.SourceSans
+Subtitle.Parent = MainFrame
+
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(0, 300, 0, 40)
+TextBox.Position = UDim2.new(0.5, -150, 0, 80)
+TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.PlaceholderText = "여기에 키를 입력하세요..."
+TextBox.Text = ""
+TextBox.TextSize = 14
+TextBox.Font = Enum.Font.SourceSans
+TextBox.ClearTextOnFocus = false
+TextBox.Parent = MainFrame
+
+local BoxConn = Instance.new("UICorner")
+BoxConn.CornerRadius = UDim.new(0, 6)
+BoxConn.Parent = TextBox
+
+local SubmitBtn = Instance.new("TextButton")
+SubmitBtn.Size = UDim2.new(0, 300, 0, 35)
+SubmitBtn.Position = UDim2.new(0.5, -150, 0, 135)
+SubmitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+SubmitBtn.Text = "인증 확인"
+SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SubmitBtn.TextSize = 15
+SubmitBtn.Font = Enum.Font.SourceSansBold
+SubmitBtn.Parent = MainFrame
+
+local BtnConn = Instance.new("UICorner")
+BtnConn.CornerRadius = UDim.new(0, 6)
+BtnConn.Parent = SubmitBtn
+
+local authenticated = false
+
+SubmitBtn.MouseButton1Click:Connect(function()
+    if TextBox.Text == "zxxdaswo_key.pro" then
+        authenticated = true
+        KeyGui:Destroy()
+    else
+        TextBox.Text = ""
+        TextBox.PlaceholderText = "틀렸습니다! 다시 입력하세요."
+    end
+end)
+
+repeat task.wait() until authenticated
+
+-- ============================================================
+-- [Rayfield UI 및 메인 스크립트 로드]
+-- ============================================================
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local localPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 
-local playerGui = localPlayer:WaitForChild("PlayerGui", 5) or localPlayer:FindFirstChildOfClass("PlayerGui")
-
--- 기존 GUI 제거 (중복 방지)
-pcall(function()
-    if CoreGui:FindFirstChild("WordGameHelperUI") then
-        CoreGui.WordGameHelperUI:Destroy()
-    end
-    if playerGui and playerGui:FindFirstChild("WordGameHelperUI") then
-        playerGui.WordGameHelperUI:Destroy()
-    end
-end)
-
--- ScreenGui 생성
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "WordGameHelperUI"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-
-local success = pcall(function()
-    if syn and syn.protect_gui then
-        syn.protect_gui(screenGui)
-        screenGui.Parent = CoreGui
-    elseif gethui then
-        screenGui.Parent = gethui()
-    else
-        screenGui.Parent = CoreGui
-    end
-end)
-
-if not success or not screenGui.Parent then
-    screenGui.Parent = playerGui
-end
-
--- ==========================================
--- [키 모음 정보 데이터 설정]
--- ==========================================
-local specialBypassCode = "지환존잘7011" -- 개발자/친구 전용 입력 코드
-
-local savedKeyVault = {
-    zxxdaswoNormalKey = "no.1keyap19293949", -- zxxdaswo 기본(일반) 키
-    zxxdaswoPremiumKey = "zxxdaswo.key.pro", -- zxxdaswo 프리미엄 키
-    casaNovaPremiumKey = "1CasaNova6974_keyesi", -- 1CasaNova6974 프리미엄 키
-    dohunpoopPremiumKey = "dohunpoop.key.prap", -- dohunpoop 프리미엄 키
-    masterKeyText = "MASTER_KEY_2026"         -- 공개 마스터 키
+local C = {
+    SpeedEnabled = false, CurrentSpeed = 16,
+    JumpEnabled = false, CurrentJumpPower = 50,
+    FlyEnabled = false, FlySpeed = 50,
+    NoclipEnabled = false,
+    Keys = {W = false, A = false, S = false, D = false, Space = false, Shift = false},
+    EspEnabled = false,
+    GeneratorEspEnabled = false,
+    AimbotEnabled = false,
+    AimbotRadius = 150,
+    HitboxExpandEnabled = false,
 }
 
-local userKeys = {
-    ["dambii522"] = "no.1keyap191929",
-    ["zxxdaswo"] = savedKeyVault.zxxdaswoNormalKey,
-    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey,
-    ["dohunpoop"] = savedKeyVault.dohunpoopPremiumKey,
-    ["yfsm_31"] = "yfsm_31.key199"
-}
+local BODY_GYRO_NAME = "AXRForsakenGyro"
+local BODY_VELOCITY_NAME = "AXRForsakenVelocity"
+local PlayerEspFolder = "AXRForsakenPlayerEsp"
+local GenEspFolder = "AXRForsakenGeneratorEsp"
+local AimbotGuiFolder = "AXRForsakenAimbotGui"
 
-local premiumKeys = {
-    ["zxxdaswo"] = savedKeyVault.zxxdaswoPremiumKey,
-    ["1CasaNova6974"] = savedKeyVault.casaNovaPremiumKey,
-    ["dohunpoop"] = savedKeyVault.dohunpoopPremiumKey
-}
+local generatorHighlights = {}
+local isAutoClearing = false
+local aimbotCircle = nil
+local lockedAimbotTarget = nil
 
-_G.WordHelperAuthenticated = _G.WordHelperAuthenticated or false
-_G.WordHelperPremiumAuthenticated = _G.WordHelperPremiumAuthenticated or false
+local MainWindow = Rayfield:CreateWindow({
+   Name = "AXR 포세이큰 스크립트",
+   LoadingTitle = "AXR 포세이큰 로딩 중...",
+   LoadingSubtitle = "by zxxdaswo",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AXRForsakenHub",
+      FileName = "AXRForsakenConfig"
+   },
+   KeySystem = false,
+})
 
-local function checkSavedAuth()
-    return _G.WordHelperAuthenticated
-end
+local MainTab = MainWindow:CreateTab("메인 기능", 4483362458)
+local ParticipantTab = MainWindow:CreateTab("참가자 전용", 4483362458)
+local HunterTab = MainWindow:CreateTab("술래 전용", 4483362458)
 
-local function checkSavedPremiumAuthenticated()
-    return _G.WordHelperPremiumAuthenticated
-end
+-- ============================================================
+-- [MainTab 내용: 메인 기능]
+-- ============================================================
+MainTab:CreateSection("스피드 설정")
+MainTab:CreateToggle({
+   Name = "스피드 ON/OFF", CurrentValue = C.SpeedEnabled,
+   Callback = function(Value) C.SpeedEnabled = Value end,
+})
+MainTab:CreateSlider({
+   Name = "이동 속도 조절", Range = {16, 250}, Increment = 1, CurrentValue = C.CurrentSpeed,
+   Callback = function(Value) C.CurrentSpeed = Value end,
+})
 
--- ==========================================
--- [메인 헬퍼 UI 생성]
--- ==========================================
-local titleFrame = Instance.new("TextButton")
-titleFrame.Name = "TitleFrame"
-titleFrame.Size = UDim2.new(0, 240, 0, 75)
-titleFrame.Position = UDim2.new(0.73, 0, 0.1, 0)
-titleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-titleFrame.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleFrame.TextSize = 15
-titleFrame.Font = Enum.Font.SourceSansBold
-titleFrame.Text = "단어 맞히기 헬퍼"
-titleFrame.TextYAlignment = Enum.TextYAlignment.Top
-titleFrame.AutoButtonColor = false
-titleFrame.Visible = checkSavedAuth() or checkSavedPremiumAuthenticated()
-titleFrame.Parent = screenGui
+MainTab:CreateSection("점프력 설정")
+MainTab:CreateToggle({
+   Name = "점프력 ON/OFF", CurrentValue = C.JumpEnabled,
+   Callback = function(Value)
+      C.JumpEnabled = Value
+      local char = LocalPlayer.Character
+      if char and char:FindFirstChild("Humanoid") then
+         if not Value then
+            char.Humanoid.UseJumpPower = true
+            char.Humanoid.JumpPower = 50
+         end
+      end
+   end,
+})
+MainTab:CreateSlider({
+   Name = "점프력 조절", Range = {50, 300}, Increment = 5, CurrentValue = C.CurrentJumpPower,
+   Callback = function(Value) C.CurrentJumpPower = Value end,
+})
 
-local uiCornerBtn = Instance.new("UICorner")
-uiCornerBtn.CornerRadius = UDim.new(0, 8)
-uiCornerBtn.Parent = titleFrame
+MainTab:CreateSection("플라이 (비행) 설정")
+MainTab:CreateToggle({
+   Name = "플라이 ON/OFF", CurrentValue = C.FlyEnabled,
+   Callback = function(Value)
+      C.FlyEnabled = Value
+      local char = LocalPlayer.Character
+      if char and char:FindFirstChild("HumanoidRootPart") then
+         local rootPart = char.HumanoidRootPart
+         if Value then
+            if not rootPart:FindFirstChild(BODY_GYRO_NAME) then
+               local bg = Instance.new("BodyGyro") bg.Name = BODY_GYRO_NAME
+               bg.P = 9e4 bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+               bg.CFrame = rootPart.CFrame bg.Parent = rootPart
+            end
+            if not rootPart:FindFirstChild(BODY_VELOCITY_NAME) then
+               local bv = Instance.new("BodyVelocity") bv.Name = BODY_VELOCITY_NAME
+               bv.Velocity = Vector3.new(0, 0, 0) bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+               bv.Parent = rootPart
+            end
+         else
+            local bg, bv = rootPart:FindFirstChild(BODY_GYRO_NAME), rootPart:FindFirstChild(BODY_VELOCITY_NAME)
+            if bg then bg:Destroy() end if bv then bv:Destroy() end
+         end
+      end
+   end,
+})
+MainTab:CreateSlider({
+   Name = "플라이 속도 조절", Range = {10, 300}, Increment = 5, CurrentValue = C.FlySpeed,
+   Callback = function(Value) C.FlySpeed = Value end,
+})
 
-local devLabel = Instance.new("TextLabel")
-devLabel.Name = "DevLabel"
-devLabel.Size = UDim2.new(1, 0, 0, 20)
-devLabel.Position = UDim2.new(0, 0, 0, 22)
-devLabel.BackgroundTransparency = 1
-devLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
-devLabel.TextSize = 12
-devLabel.Font = Enum.Font.SourceSansItalic
-devLabel.Text = "스크립트 개발자 : 지환"
-devLabel.Parent = titleFrame
+MainTab:CreateSection("노클립 설정")
+MainTab:CreateToggle({
+   Name = "노클립(벽 통과) ON/OFF", CurrentValue = C.NoclipEnabled,
+   Callback = function(Value) C.NoclipEnabled = Value end,
+})
 
--- [프리미엄 전용] 자동 정답 버튼
-local autoAnswerEnabled = false
-local autoBtn = Instance.new("TextButton")
-autoBtn.Name = "AutoAnswerButton"
-autoBtn.Size = UDim2.new(0, 85, 0, 24)
-autoBtn.Position = UDim2.new(1, -90, 0, 45)
-autoBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoBtn.TextSize = 11
-autoBtn.Font = Enum.Font.SourceSansBold
-autoBtn.Text = "자동정답: OFF"
-autoBtn.Visible = checkSavedPremiumAuthenticated()
-autoBtn.Parent = titleFrame
+MainTab:CreateSection("ESP 설정")
+MainTab:CreateToggle({
+   Name = "플레이어 ESP ON/OFF", CurrentValue = C.EspEnabled,
+   Callback = function(Value)
+      C.EspEnabled = Value
+      local container = CoreGui:FindFirstChild(PlayerEspFolder)
+      if Value then
+         if not container then
+            container = Instance.new("ScreenGui", CoreGui)
+            container.Name = PlayerEspFolder
+         end
+         
+         local function applyEsp(targetPlayer)
+            if targetPlayer == LocalPlayer then return end
+            local function setup()
+               if not targetPlayer.Character then return end
+               for _, v in ipairs(container:GetChildren()) do
+                  if v.Name == targetPlayer.Name .. "_EspObj" then v:Destroy() end
+               end
+               
+               local folder = Instance.new("Folder")
+               folder.Name = targetPlayer.Name .. "_EspObj"
+               folder.Parent = container
+               
+               local hl = Instance.new("Highlight")
+               hl.Adornee = targetPlayer.Character
+               hl.FillColor = Color3.fromRGB(0, 255, 200)
+               hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+               hl.FillTransparency = 0.5
+               hl.OutlineTransparency = 0
+               hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+               hl.Parent = folder
+               
+               local head = targetPlayer.Character:FindFirstChild("Head")
+               if head then
+                  local bill = Instance.new("BillboardGui")
+                  bill.Size = UDim2.new(0, 200, 0, 40)
+                  bill.StudsOffset = Vector3.new(0, 2.5, 0)
+                  bill.AlwaysOnTop = true
+                  bill.Parent = folder
+                  bill.Adornee = head
+                  
+                  local textLabel = Instance.new("TextLabel")
+                  textLabel.Size = UDim2.new(1, 0, 1, 0)
+                  textLabel.BackgroundTransparency = 1
+                  textLabel.Font = Enum.Font.SourceSansBold
+                  textLabel.TextSize = 14
+                  textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                  textLabel.TextStrokeTransparency = 0
+                  textLabel.Text = targetPlayer.DisplayName .. " (@" .. targetPlayer.Name .. ")"
+                  textLabel.Parent = bill
+               end
+            end
+            
+            targetPlayer.CharacterAdded:Connect(function()
+               task.wait(1)
+               if C.EspEnabled then setup() end
+            end)
+            setup()
+         end
+         
+         for _, p in ipairs(Players:GetPlayers()) do applyEsp(p) end
+         Players.PlayerAdded:Connect(applyEsp)
+      else
+         if container then container:Destroy() end
+      end
+   end,
+})
 
-local uiCornerAuto = Instance.new("UICorner")
-uiCornerAuto.CornerRadius = UDim.new(0, 5)
-uiCornerAuto.Parent = autoBtn
+-- ============================================================
+-- [ParticipantTab 내용: 참가자 전용]
+-- ============================================================
+ParticipantTab:CreateSection("참가자 전용 발전기 기능")
 
-autoBtn.MouseButton1Click:Connect(function()
-    autoAnswerEnabled = not autoAnswerEnabled
-    if autoAnswerEnabled then
-        autoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-        autoBtn.Text = "자동정답: ON"
-    else
-        autoBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        autoBtn.Text = "자동정답: OFF"
-    end
-end)
+ParticipantTab:CreateSection("발전기 ESP")
+ParticipantTab:CreateToggle({
+   Name = "발전기 ESP ON/OFF", CurrentValue = C.GeneratorEspEnabled,
+   Callback = function(Value)
+      C.GeneratorEspEnabled = Value
+      local container = CoreGui:FindFirstChild(GenEspFolder)
+      if Value then
+         if not container then
+            container = Instance.new("ScreenGui", CoreGui)
+            container.Name = GenEspFolder
+         end
+         
+         generatorHighlights = {}
+         local scannedModels = {}
+         
+         for _, obj in ipairs(Workspace:GetDescendants()) do
+            local nameLower = obj.Name:lower()
+            if nameLower == "generator" or nameLower == "발전기" or nameLower:find("generator") or nameLower:find("발전기") then
+               local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model") or obj
+               local parentPath = model:GetFullName():lower()
+               
+               if not parentPath:find("lobby") and not parentPath:find("spawn") and not parentPath:find("waiting") then
+                  if model and not scannedModels[model] then
+                     local okToAdd = true
+                     if model:IsA("Model") then
+                        local size = model:GetExtentsSize()
+                        if size.X > 80 or size.Z > 80 then okToAdd = false end
+                     end
+                     
+                     if okToAdd then
+                        scannedModels[model] = true
+                        local hl = Instance.new("Highlight")
+                        hl.Name = "GenHighlight"
+                        hl.Adornee = model
+                        hl.FillColor = Color3.fromRGB(255, 170, 0)
+                        hl.OutlineColor = Color3.fromRGB(0, 0, 0)
+                        hl.FillTransparency = 0.4
+                        hl.OutlineTransparency = 0
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = container
+                        
+                        table.insert(generatorHighlights, {model = model, highlight = hl})
+                     end
+                  end
+               end
+            end
+         end
+      else
+         if container then container:Destroy() end
+         generatorHighlights = {}
+      end
+   end,
+})
 
-local answerLabel = Instance.new("TextLabel")
-answerLabel.Name = "AnswerLabel"
-answerLabel.Size = UDim2.new(0, 240, 0, 45)
-answerLabel.Position = UDim2.new(0, 0, 1, 5)
-answerLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-answerLabel.BackgroundTransparency = 0.2
-answerLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
-answerLabel.TextSize = 18
-answerLabel.Font = Enum.Font.SourceSansBold
-answerLabel.Text = "정답: 라운드 대기 중..."
-answerLabel.Visible = true
-answerLabel.Parent = titleFrame
+-- ============================================================
+-- [자동 발전기 클리어 및 퍼즐 유지 자동 연타 시스템]
+-- ============================================================
+ParticipantTab:CreateSection("자동 발전기 & 퍼즐 연타 시스템")
 
-local uiCornerLbl = Instance.new("UICorner")
-uiCornerLbl.CornerRadius = UDim.new(0, 8)
-uiCornerLbl.Parent = answerLabel
-
-local resetKeyBtn = Instance.new("TextButton")
-resetKeyBtn.Name = "ResetKeyButton"
-resetKeyBtn.Size = UDim2.new(0, 240, 0, 30)
-resetKeyBtn.Position = UDim2.new(0, 0, 1, 10)
-resetKeyBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-resetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-resetKeyBtn.TextSize = 13
-resetKeyBtn.Font = Enum.Font.SourceSansBold
-resetKeyBtn.Text = "키 시스템 초기화"
-resetKeyBtn.Visible = true
-resetKeyBtn.Parent = answerLabel
-
-local uiCornerReset = Instance.new("UICorner")
-uiCornerReset.CornerRadius = UDim.new(0, 6)
-uiCornerReset.Parent = resetKeyBtn
-
-local destroyScriptBtn = Instance.new("TextButton")
-destroyScriptBtn.Name = "DestroyScriptButton"
-destroyScriptBtn.Size = UDim2.new(0, 240, 0, 30)
-destroyScriptBtn.Position = UDim2.new(0, 0, 1, 8)
-destroyScriptBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-destroyScriptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-destroyScriptBtn.TextSize = 13
-destroyScriptBtn.Font = Enum.Font.SourceSansBold
-destroyScriptBtn.Text = "스크립트 삭제"
-destroyScriptBtn.Visible = true
-destroyScriptBtn.Parent = resetKeyBtn
-
-local uiCornerDestroy = Instance.new("UICorner")
-uiCornerDestroy.CornerRadius = UDim.new(0, 6)
-uiCornerDestroy.Parent = destroyScriptBtn
-
-destroyScriptBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        if screenGui then
-            screenGui:Destroy()
-        end
-    end)
-end)
-
-local function updatePremiumUIVisibility(isVisible)
-    autoBtn.Visible = isVisible
-end
-
--- ==========================================
--- [자동 정답 입력 및 게임 정답 로직]
--- ==========================================
-function triggerAutoInput(word)
-    if not checkSavedPremiumAuthenticated() or not autoAnswerEnabled then return end
-    pcall(function()
-        local targetBox = nil
-        local focusedGui = UserInputService:GetFocusedTextBox()
-        if focusedGui and focusedGui:IsA("TextBox") then
-            targetBox = focusedGui
-        else
+local function toggleAutoClear(state)
+   isAutoClearing = state
+   if isAutoClearing then
+      task.spawn(function()
+         while isAutoClearing and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+               local nameLower = obj.Name:lower()
+               if nameLower:find("generator") or nameLower:find("발전기") or nameLower:find("puzzle") or nameLower:find("퍼즐") then
+                  for _, child in ipairs(obj:GetDescendants()) do
+                     if child:IsA("RemoteEvent") then
+                        pcall(function() child:FireServer(true) end)
+                     elseif child:IsA("RemoteFunction") then
+                        pcall(function() child:InvokeServer(true) end)
+                     end
+                  end
+               end
+            end
+            
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
             if playerGui then
-                for _, descendant in ipairs(playerGui:GetDescendants()) do
-                    if descendant:IsA("TextBox") and descendant.Visible and descendant.AbsoluteSize.X > 0 then
-                        local phText = (descendant.PlaceholderText or ""):lower()
-                        local txt = (descendant.Text or ""):lower()
-                        if phText:find("입력") or phText:find("단어") or phText:find("여기에") or phText:find("chat") or
-                           txt:find("입력") or txt:find("단어") or txt:find("여기에") then
-                            targetBox = descendant
-                            break
-                        end
-                    end
-                end
+               for _, gui in ipairs(playerGui:GetDescendants()) do
+                  if gui:IsA("RemoteEvent") then
+                     pcall(function() gui:FireServer(true) end)
+                  end
+               end
             end
-            if not targetBox and playerGui then
-                for _, descendant in ipairs(playerGui:GetDescendants()) do
-                    if descendant:IsA("TextBox") and descendant.Visible and descendant.AbsoluteSize.X > 50 then
-                        targetBox = descendant
+            
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+               local rootPart = char.HumanoidRootPart
+               for _, prompt in ipairs(Workspace:GetDescendants()) do
+                  if prompt:IsA("ProximityPrompt") then
+                     local parentPart = prompt.Parent
+                     if parentPart and parentPart:IsA("BasePart") and (parentPart.Position - rootPart.Position).Magnitude <= 15 then
+                        pcall(function() fireproximityprompt(prompt) end)
+                     end
+                  end
+               end
+            end
+            
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            task.wait(0.02)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+            task.wait(0.03)
+         end
+      end)
+      
+      Rayfield:Notify({
+         Title = "AXR 포세이큰",
+         Content = "자동 발전기 및 퍼즐 연타가 시작되었습니다!",
+         Duration = 1.5,
+         Image = 4483362458,
+      })
+   else
+      Rayfield:Notify({
+         Title = "AXR 포세이큰",
+         Content = "자동 발전기 연타가 중지되었습니다.",
+         Duration = 1.5,
+         Image = 4483362458,
+      })
+   end
+end
+
+ParticipantTab:CreateButton({
+   Name = "자동 발전기 & 퍼즐 연타 ON/OFF (토글)",
+   Callback = function()
+      toggleAutoClear(not isAutoClearing)
+   end,
+})
+
+ParticipantTab:CreateSection("발전기 텔레포트")
+
+local generatorOptions = {"발전기 스캔 중..."}
+local generatorInstances = {}
+local selectedGeneratorOption = nil
+
+local function scanGenerators()
+   generatorOptions = {}
+   generatorInstances = {}
+   local scannedModels = {}
+   local scannedPositions = {}
+   local count = 1
+   
+   for _, obj in ipairs(Workspace:GetDescendants()) do
+      local nameLower = obj.Name:lower()
+      if nameLower == "generator" or nameLower == "발전기" or nameLower:find("generator") or nameLower:find("발전기") then
+         local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model") or obj
+         local parentPath = model:GetFullName():lower()
+         
+         if not parentPath:find("lobby") and not parentPath:find("spawn") and not parentPath:find("waiting") then
+            if model and not scannedModels[model] then
+               local okToAdd = true
+               if model:IsA("Model") then
+                  local size = model:GetExtentsSize()
+                  if size.X > 80 or size.Z > 80 then okToAdd = false end
+               end
+               
+               if okToAdd then
+                  local interactionPart = nil
+                  local promptObj = nil
+                  for _, desc in ipairs(model:GetDescendants()) do
+                     if desc:IsA("ProximityPrompt") and desc.Parent and desc.Parent:IsA("BasePart") then
+                        interactionPart = desc.Parent
+                        promptObj = desc
                         break
-                    end
-                end
-            end
-        end
-
-        if targetBox then
-            targetBox.Text = word
-            task.spawn(function()
-                targetBox:CaptureFocus()
-                task.wait(0.04)
-                if VirtualInputManager then
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                    task.wait(0.03)
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-                end
-            end)
-        end
-    end)
-end
-
-local currentAnswer = ""
-
-local function isValidWord(txt)
-    if not txt or type(txt) ~= "string" then return false end
-    txt = txt:gsub("^%s*(.-)%s*$", "%1")
-    if txt:find("#") or txt:find("_") then return false end
-    if txt:find("%s") then return false end
-    if #txt < 2 or #txt > 20 then return false end
-    if tonumber(txt) ~= nil or txt:match("%d") then return false end
-    local lowerTxt = txt:lower()
-    if lowerTxt == "total" or lowerTxt:find("total") or lowerTxt == "설정" or lowerTxt == "옵션" or lowerTxt == "메뉴" or lowerTxt == "상점" or lowerTxt == "정보" or lowerTxt == "선택됨" then
-        return false
-    end
-    if lowerTxt:match("^cl") or lowerTxt:match("^gui") or lowerTxt:match("^rem") or lowerTxt:match("^http") then
-        return false
-    end
-    if txt:match("[a-zA-Z]") then return false end
-    return true
-end
-
-local function checkRoundReset(txt)
-    if not txt or type(txt) ~= "string" then return false end
-    local low = txt:lower()
-    if low:find("대기") or low:find("라운드") or low:find("시작") or low:find("끝") or low:find("종료") or low:find("ready") or low:find("wait") or low:find("end") or low:find("over") or low:find("finish") then
-        return true
-    end
-    return false
-end
-
-local function processValue(txt)
-    if not txt or type(txt) ~= "string" then return end
-    txt = txt:gsub("^%s*(.-)%s*$", "%1")
-    if checkRoundReset(txt) then
-        if currentAnswer ~= "RESET" then
-            currentAnswer = "RESET"
-            answerLabel.Text = "정답: 라운드 대기 중..."
-        end
-    elseif isValidWord(txt) then
-        if txt ~= currentAnswer then
-            currentAnswer = txt
-            answerLabel.Text = "정답: " .. txt
-            triggerAutoInput(txt)
-        end
-    end
-end
-
-pcall(function()
-    local function hookEvent(v)
-        if v:IsA("RemoteEvent") or v:IsA("UnreliableRemoteEvent") then
-            v.OnClientEvent:Connect(function(...)
-                local args = {...}
-                for _, arg in ipairs(args) do
-                    if type(arg) == "string" then processValue(arg)
-                    elseif type(arg) == "table" then
-                        for _, subArg in pairs(arg) do
-                            if type(subArg) == "string" then processValue(subArg) end
+                     end
+                  end
+                  
+                  if not interactionPart then
+                     for _, desc in ipairs(model:GetDescendants()) do
+                        if desc:IsA("BasePart") then
+                           local dName = desc.Name:lower()
+                           if dName:find("interact") or dName:find("touch") or dName:find("hitbox") or dName:find("prompt") then
+                              interactionPart = desc
+                              break
+                           end
                         end
-                    end
-                end
-            end)
-        end
-    end
-    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do hookEvent(v) end
-    ReplicatedStorage.DescendantAdded:Connect(hookEvent)
-end)
-
-pcall(function()
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("StringValue") or obj:IsA("TextValue") then
-            processValue(obj.Value)
-            obj.Changed:Connect(processValue)
-        end
-    end
-    ReplicatedStorage.DescendantAdded:Connect(function(obj)
-        if obj:IsA("StringValue") or obj:IsA("TextValue") then
-            obj.Changed:Connect(processValue)
-        end
-    end)
-end)
-
--- ==========================================
--- [패치노트 UI 창 생성 함수]
--- ==========================================
-local function createPatchNotesUI(keyFrame)
-    local patchFrame = Instance.new("Frame")
-    patchFrame.Size = UDim2.new(0, 320, 0, 320)
-    patchFrame.Position = UDim2.new(0.5, -160, 0.4, -160)
-    patchFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    patchFrame.BorderSizePixel = 0
-    patchFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = patchFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 16
-    title.Font = Enum.Font.SourceSansBold
-    title.Text = "📜 스크립트 패치노트 & 업데이트"
-    title.Parent = patchFrame
-
-    -- 패치노트 내용 스크롤/텍스트 영역
-    local contentBox = Instance.new("TextLabel")
-    contentBox.Size = UDim2.new(0, 280, 0, 210)
-    contentBox.Position = UDim2.new(0.5, -140, 0, 45)
-    contentBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    contentBox.TextColor3 = Color3.fromRGB(220, 220, 220)
-    contentBox.TextSize = 12
-    contentBox.Font = Enum.Font.SourceSans
-    contentBox.TextXAlignment = Enum.TextXAlignment.Left
-    contentBox.TextYAlignment = Enum.TextYAlignment.Top
-    contentBox.TextWrapped = true
-    contentBox.Text = [[
-[ v1.4 업데이트 내역 ]
-• dohunpoop 프리미엄 키 추가 완료 (dohunpoop.key.prap 연동)
-• 프리미엄 전용 인원 확장 및 권한 시스템 최적화
-
-[ v1.3 업데이트 내역 ]
-• 1CasaNova6974 프리미엄 키 추가 완료 (전용 키 연동)
-• 프리미엄 전용 [자동정답 ON/OFF] 기능 탑재
-• 리모트 이벤트 및 StringValue 실시간 단어 추출 로직 강화
-
-[ v1.2 업데이트 내역 ]
-• 2단계 본인 확인 인증 시스템 적용 및 UI 드래그 기능 추가
-]]
-    contentBox.Parent = patchFrame
-
-    local boxCorner = Instance.new("UICorner")
-    boxCorner.CornerRadius = UDim.new(0, 6)
-    boxCorner.Parent = contentBox
-
-    -- 닫기 버튼
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 280, 0, 32)
-    closeBtn.Position = UDim2.new(0.5, -140, 0, 268)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.TextSize = 13
-    closeBtn.Font = Enum.Font.SourceSansBold
-    closeBtn.Text = "닫기"
-    closeBtn.Parent = patchFrame
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = closeBtn
-
-    closeBtn.MouseButton1Click:Connect(function()
-        patchFrame:Destroy()
-        if keyFrame then
-            keyFrame.Visible = true
-        end
-    end)
-end
-
--- ==========================================
--- [저장된 키 모음 정보 창]
--- ==========================================
-local function createKeyInfoResultUI(specialFrame)
-    local infoFrame = Instance.new("Frame")
-    infoFrame.Size = UDim2.new(0, 360, 0, 310)
-    infoFrame.Position = UDim2.new(0.5, -180, 0.4, -155)
-    infoFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    infoFrame.BorderSizePixel = 0
-    infoFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = infoFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 16
-    title.Font = Enum.Font.SourceSansBold
-    title.Text = "저장된 키 모음 정보"
-    title.Parent = infoFrame
-
-    local normalKeyBtn = Instance.new("TextButton")
-    normalKeyBtn.Size = UDim2.new(0, 320, 0, 42)
-    normalKeyBtn.Position = UDim2.new(0.5, -160, 0, 48)
-    normalKeyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    normalKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    normalKeyBtn.TextSize = 13
-    normalKeyBtn.Font = Enum.Font.SourceSansBold
-    normalKeyBtn.Text = "기본 키로 적용 및 실행\n(" .. savedKeyVault.zxxdaswoNormalKey .. ")"
-    normalKeyBtn.Parent = infoFrame
-
-    local c1 = Instance.new("UICorner")
-    c1.CornerRadius = UDim.new(0, 6)
-    c1.Parent = normalKeyBtn
-
-    local premiumKeyBtn = Instance.new("TextButton")
-    premiumKeyBtn.Size = UDim2.new(0, 320, 0, 42)
-    premiumKeyBtn.Position = UDim2.new(0.5, -160, 0, 98)
-    premiumKeyBtn.BackgroundColor3 = Color3.fromRGB(230, 130, 0)
-    premiumKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    premiumKeyBtn.TextSize = 13
-    premiumKeyBtn.Font = Enum.Font.SourceSansBold
-    premiumKeyBtn.Text = "프리미엄 키로 적용 및 실행\n(" .. savedKeyVault.zxxdaswoPremiumKey .. ")"
-    premiumKeyBtn.Parent = infoFrame
-
-    local c2 = Instance.new("UICorner")
-    c2.CornerRadius = UDim.new(0, 6)
-    c2.Parent = premiumKeyBtn
-
-    local masterKeyBtn = Instance.new("TextButton")
-    masterKeyBtn.Size = UDim2.new(0, 320, 0, 42)
-    masterKeyBtn.Position = UDim2.new(0.5, -160, 0, 148)
-    masterKeyBtn.BackgroundColor3 = Color3.fromRGB(219, 112, 147)
-    masterKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    masterKeyBtn.TextSize = 13
-    masterKeyBtn.Font = Enum.Font.SourceSansBold
-    masterKeyBtn.Text = "마스터 키로 적용 및 실행\n(" .. savedKeyVault.masterKeyText .. ")"
-    masterKeyBtn.Parent = infoFrame
-
-    local c3 = Instance.new("UICorner")
-    c3.CornerRadius = UDim.new(0, 6)
-    c3.Parent = masterKeyBtn
-
-    normalKeyBtn.MouseButton1Click:Connect(function()
-        _G.WordHelperAuthenticated = true
-        _G.WordHelperPremiumAuthenticated = false
-        infoFrame:Destroy()
-        if specialFrame then specialFrame:Destroy() end
-        titleFrame.Visible = true
-        updatePremiumUIVisibility(false)
-    end)
-
-    premiumKeyBtn.MouseButton1Click:Connect(function()
-        _G.WordHelperAuthenticated = true
-        _G.WordHelperPremiumAuthenticated = true
-        infoFrame:Destroy()
-        if specialFrame then specialFrame:Destroy() end
-        titleFrame.Visible = true
-        updatePremiumUIVisibility(true)
-    end)
-
-    masterKeyBtn.MouseButton1Click:Connect(function()
-        _G.WordHelperAuthenticated = true
-        _G.WordHelperPremiumAuthenticated = true
-        infoFrame:Destroy()
-        if specialFrame then specialFrame:Destroy() end
-        titleFrame.Visible = true
-        updatePremiumUIVisibility(true)
-    end)
-end
-
--- ==========================================
--- [개발자 전용 코드 입력 UI]
--- ==========================================
-local function createSpecialCodeUI(keyFrame)
-    local specialFrame = Instance.new("Frame")
-    specialFrame.Size = UDim2.new(0, 300, 0, 180)
-    specialFrame.Position = UDim2.new(0.5, -150, 0.4, -90)
-    specialFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    specialFrame.BorderSizePixel = 0
-    specialFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = specialFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 35)
-    title.BackgroundTransparency = 1
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 15
-    title.Font = Enum.Font.SourceSansBold
-    title.Text = "개발자 / 허용한 친구 코드 입력"
-    title.Parent = specialFrame
-
-    local codeBox = Instance.new("TextBox")
-    codeBox.Size = UDim2.new(0, 260, 0, 32)
-    codeBox.Position = UDim2.new(0.5, -130, 0, 45)
-    codeBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    codeBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    codeBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    codeBox.PlaceholderText = "코드를 입력하세요..."
-    codeBox.TextSize = 13
-    codeBox.Text = ""
-    codeBox.Parent = specialFrame
-
-    local boxCorner = Instance.new("UICorner")
-    boxCorner.CornerRadius = UDim.new(0, 6)
-    boxCorner.Parent = codeBox
-
-    local statusLbl = Instance.new("TextLabel")
-    statusLbl.Size = UDim2.new(1, 0, 0, 25)
-    statusLbl.Position = UDim2.new(0, 0, 0, 85)
-    statusLbl.BackgroundTransparency = 1
-    statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-    statusLbl.TextSize = 12
-    statusLbl.Font = Enum.Font.SourceSansItalic
-    statusLbl.Text = ""
-    statusLbl.Parent = specialFrame
-
-    local submitCodeBtn = Instance.new("TextButton")
-    submitCodeBtn.Size = UDim2.new(0, 125, 0, 32)
-    submitCodeBtn.Position = UDim2.new(0.5, -130, 0, 120)
-    submitCodeBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    submitCodeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitCodeBtn.TextSize = 13
-    submitCodeBtn.Font = Enum.Font.SourceSansBold
-    submitCodeBtn.Text = "확인"
-    submitCodeBtn.Parent = specialFrame
-
-    local btnCorner1 = Instance.new("UICorner")
-    btnCorner1.CornerRadius = UDim.new(0, 6)
-    btnCorner1.Parent = submitCodeBtn
-
-    local cancelCodeBtn = Instance.new("TextButton")
-    cancelCodeBtn.Size = UDim2.new(0, 125, 0, 32)
-    cancelCodeBtn.Position = UDim2.new(0.5, 5, 0, 120)
-    cancelCodeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-    cancelCodeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    cancelCodeBtn.TextSize = 13
-    cancelCodeBtn.Font = Enum.Font.SourceSansBold
-    cancelCodeBtn.Text = "취소"
-    cancelCodeBtn.Parent = specialFrame
-
-    local btnCorner2 = Instance.new("UICorner")
-    btnCorner2.CornerRadius = UDim.new(0, 6)
-    btnCorner2.Parent = cancelCodeBtn
-
-    cancelCodeBtn.MouseButton1Click:Connect(function()
-        specialFrame:Destroy()
-        keyFrame.Visible = true
-    end)
-
-    submitCodeBtn.MouseButton1Click:Connect(function()
-        local entered = codeBox.Text:gsub("^%s*(.-)%s*$", "%1")
-        if entered == specialBypassCode then
-            statusLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLbl.Text = "인증 성공!"
-            task.wait(0.4)
-            createKeyInfoResultUI(specialFrame)
-            if keyFrame then keyFrame:Destroy() end
-        else
-            statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-            statusLbl.Text = "코드가 일치하지 않습니다."
-        end
-    end)
-end
-
--- ==========================================
--- [인증창 및 드래그 UI 시스템]
--- ==========================================
-local function createSecondStepUI(isPremium)
-    local secondFrame = Instance.new("Frame")
-    secondFrame.Size = UDim2.new(0, 320, 0, 250)
-    secondFrame.Position = UDim2.new(0.5, -160, 0.4, -125)
-    secondFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    secondFrame.BorderSizePixel = 0
-    secondFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = secondFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 16
-    title.Font = Enum.Font.SourceSansBold
-    title.Text = "2단계 본인 확인 인증"
-    title.Parent = secondFrame
-
-    local usernameBox = Instance.new("TextBox")
-    usernameBox.Size = UDim2.new(0, 280, 0, 32)
-    usernameBox.Position = UDim2.new(0.5, -140, 0, 50)
-    usernameBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    usernameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    usernameBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    usernameBox.PlaceholderText = "실제 닉네임 (Username) 입력..."
-    usernameBox.TextSize = 13
-    usernameBox.Parent = secondFrame
-
-    local corner1 = Instance.new("UICorner")
-    corner1.CornerRadius = UDim.new(0, 6)
-    corner1.Parent = usernameBox
-
-    local displayBox = Instance.new("TextBox")
-    displayBox.Size = UDim2.new(0, 280, 0, 32)
-    displayBox.Position = UDim2.new(0.5, -140, 0, 92)
-    displayBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    displayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    displayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    displayBox.PlaceholderText = "표시 닉네임 (Display Name) 입력..."
-    displayBox.TextSize = 13
-    displayBox.Parent = secondFrame
-
-    local corner2 = Instance.new("UICorner")
-    corner2.CornerRadius = UDim.new(0, 6)
-    corner2.Parent = displayBox
-
-    local statusLbl = Instance.new("TextLabel")
-    statusLbl.Size = UDim2.new(1, 0, 0, 25)
-    statusLbl.Position = UDim2.new(0, 0, 0, 135)
-    statusLbl.BackgroundTransparency = 1
-    statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-    statusLbl.TextSize = 12
-    statusLbl.Font = Enum.Font.SourceSansItalic
-    statusLbl.Text = "본인의 계정 정보를 정확히 입력해주세요."
-    statusLbl.Parent = secondFrame
-
-    local confirmBtn = Instance.new("TextButton")
-    confirmBtn.Size = UDim2.new(0, 280, 0, 35)
-    confirmBtn.Position = UDim2.new(0.5, -140, 0, 175)
-    confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    confirmBtn.TextSize = 14
-    confirmBtn.Font = Enum.Font.SourceSansBold
-    confirmBtn.Text = "최종 인증 완료"
-    confirmBtn.Parent = secondFrame
-
-    local cornerBtn = Instance.new("UICorner")
-    cornerBtn.CornerRadius = UDim.new(0, 6)
-    cornerBtn.Parent = confirmBtn
-
-    confirmBtn.MouseButton1Click:Connect(function()
-        local enteredUser = usernameBox.Text:gsub("^%s*(.-)%s*$", "%1")
-        local enteredDisplay = displayBox.Text:gsub("^%s*(.-)%s*$", "%1")
-
-        if enteredUser == localPlayer.Name and enteredDisplay == localPlayer.DisplayName then
-            if isPremium then
-                _G.WordHelperPremiumAuthenticated = true
+                     end
+                  end
+                  
+                  local targetPart = interactionPart or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                  if targetPart then
+                     local pos = targetPart.Position
+                     
+                     local isDuplicate = false
+                     for _, savedPos in ipairs(scannedPositions) do
+                        if (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(savedPos.X, 0, savedPos.Z)).Magnitude < 5 then
+                           isDuplicate = true
+                           break
+                        end
+                     end
+                     
+                     if not isDuplicate then
+                        scannedModels[model] = true
+                        table.insert(scannedPositions, pos)
+                        
+                        local optionName = string.format("발전기 #%d (X:%.0f, Y:%.0f, Z:%.0f)", count, pos.X, pos.Y, pos.Z)
+                        table.insert(generatorOptions, optionName)
+                        generatorInstances[optionName] = {part = targetPart, model = model, prompt = promptObj}
+                        count = count + 1
+                     end
+                  end
+               end
             end
-            _G.WordHelperAuthenticated = true
-            statusLbl.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLbl.Text = "2단계 인증 성공! 환영합니다."
-            task.wait(0.8)
-            secondFrame:Destroy()
-            titleFrame.Visible = true
-            updatePremiumUIVisibility(isPremium)
-        else
-            statusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
-            statusLbl.Text = "실제 닉네임 또는 표시 닉네임이 일치하지 않습니다."
-        end
-    end)
+         end
+      end
+   end
+   
+   if #generatorOptions == 0 then
+      table.insert(generatorOptions, "발전기를 찾을 수 없음")
+   end
 end
 
-local function createKeySystemUI()
-    local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.new(0, 300, 0, 325)
-    keyFrame.Position = UDim2.new(0.5, -150, 0.4, -162)
-    keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    keyFrame.BorderSizePixel = 0
-    keyFrame.Visible = true
-    keyFrame.Parent = screenGui
+scanGenerators()
 
-    local uiCornerKey = Instance.new("UICorner")
-    uiCornerKey.CornerRadius = UDim.new(0, 10)
-    uiCornerKey.Parent = keyFrame
+local GeneratorDropdown = ParticipantTab:CreateDropdown({
+   Name = "발전기 선택",
+   Options = generatorOptions,
+   CurrentOption = generatorOptions[1],
+   MultipleOptions = false,
+   Flag = "GenTeleportDropdown",
+   Callback = function(Option)
+      selectedGeneratorOption = type(Option) == "table" and Option[1] or Option
+   end,
+})
+selectedGeneratorOption = generatorOptions[1]
 
-    local keyTitle = Instance.new("TextLabel")
-    keyTitle.Size = UDim2.new(1, 0, 0, 35)
-    keyTitle.BackgroundTransparency = 1
-    keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyTitle.TextSize = 16
-    keyTitle.Font = Enum.Font.SourceSansBold
-    keyTitle.Text = "단어 헬퍼 전용 인증"
-    keyTitle.Parent = keyFrame
+ParticipantTab:CreateButton({
+   Name = "선택한 발전기로 텔레포트",
+   Callback = function()
+      local genData = generatorInstances[selectedGeneratorOption]
+      if genData and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+         local rootPart = LocalPlayer.Character.HumanoidRootPart
+         
+         local targetPos = genData.part.Position
+         local offsetPos = targetPos + (genData.part.CFrame.LookVector * 3)
+         rootPart.CFrame = CFrame.new(Vector3.new(offsetPos.X, targetPos.Y, offsetPos.Z), targetPos)
+         rootPart.Velocity = Vector3.new(0, 0, 0)
+         
+         for _, item in ipairs(generatorHighlights) do
+            if item.model == genData.model then
+               if item.highlight and item.highlight.Parent then
+                  item.highlight.FillColor = Color3.fromRGB(0, 255, 0)
+               end
+            end
+         end
+         
+         Rayfield:Notify({
+            Title = "AXR 포세이큰",
+            Content = "선택한 발전기 앞쪽 정면으로 텔레포트했습니다!",
+            Duration = 2,
+            Image = 4483362458,
+         })
+      else
+         Rayfield:Notify({
+            Title = "AXR 포세이큰",
+            Content = "유효한 발전기를 선택해주세요!",
+            Duration = 2,
+            Image = 4483362458,
+         })
+      end
+   end,
+})
 
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0, 260, 0, 32)
-    keyBox.Position = UDim2.new(0.5, -130, 0, 38)
-    keyBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    keyBox.PlaceholderText = "비밀 키를 입력하세요..."
-    keyBox.TextSize = 13
-    keyBox.Text = ""
-    keyBox.Parent = keyFrame
+ParticipantTab:CreateButton({
+   Name = "발전기 목록 새로고침",
+   Callback = function()
+      scanGenerators()
+      GeneratorDropdown:Refresh(generatorOptions, true)
+      Rayfield:Notify({
+         Title = "AXR 포세이큰",
+         Content = "발전기 목록을 최신화했습니다!",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
 
-    local uiCornerBox = Instance.new("UICorner")
-    uiCornerBox.CornerRadius = UDim.new(0, 6)
-    uiCornerBox.Parent = keyBox
+-- ============================================================
+-- [HunterTab 내용: 술래 전용]
+-- ============================================================
+HunterTab:CreateSection("술래 전용 전투 기능")
 
-    local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(0, 260, 0, 30)
-    submitBtn.Position = UDim2.new(0.5, -130, 0, 76)
-    submitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitBtn.TextSize = 13
-    submitBtn.Font = Enum.Font.SourceSansBold
-    submitBtn.Text = "인증하기"
-    submitBtn.Parent = keyFrame
+HunterTab:CreateToggle({
+   Name = "플레이어 에임봇 ON/OFF", CurrentValue = C.AimbotEnabled,
+   Callback = function(Value)
+      C.AimbotEnabled = Value
+      lockedAimbotTarget = nil
+      local container = CoreGui:FindFirstChild(AimbotGuiFolder)
+      if Value then
+         if not container then
+            container = Instance.new("ScreenGui", CoreGui)
+            container.Name = AimbotGuiFolder
+         end
+         
+         if not aimbotCircle then
+            aimbotCircle = Instance.new("Frame")
+            aimbotCircle.Name = "AimbotCircle"
+            aimbotCircle.BackgroundTransparency = 1
+            aimbotCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+            aimbotCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+            aimbotCircle.Size = UDim2.new(0, C.AimbotRadius * 2, 0, C.AimbotRadius * 2)
+            aimbotCircle.Parent = container
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = aimbotCircle
+            
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = Color3.fromRGB(255, 255, 255)
+            stroke.Thickness = 1.5
+            stroke.Parent = aimbotCircle
+         end
+      else
+         if container then container:Destroy() end
+         aimbotCircle = nil
+      end
+      
+      Rayfield:Notify({
+         Title = "AXR 포세이큰 술래",
+         Content = "플레이어 에임봇이 " .. (Value and "활성화" or "비활성화") .. " 되었습니다.",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
 
-    local uiCornerSub = Instance.new("UICorner")
-    uiCornerSub.CornerRadius = UDim.new(0, 6)
-    uiCornerSub.Parent = submitBtn
+HunterTab:CreateSlider({
+   Name = "에임봇 원 크기(반경) 조절",
+   Range = {50, 400},
+   Increment = 5,
+   CurrentValue = C.AimbotRadius,
+   Callback = function(Value)
+      C.AimbotRadius = Value
+      if aimbotCircle then
+         aimbotCircle.Size = UDim2.new(0, Value * 2, 0, Value * 2)
+      end
+   end,
+})
 
-    local buyBtn = Instance.new("TextButton")
-    buyBtn.Size = UDim2.new(0, 260, 0, 28)
-    buyBtn.Position = UDim2.new(0.5, -130, 0, 112)
-    buyBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-    buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    buyBtn.TextSize = 12
-    buyBtn.Font = Enum.Font.SourceSansBold
-    buyBtn.Text = "전용 키 구매"
-    buyBtn.Parent = keyFrame
+HunterTab:CreateToggle({
+   Name = "평타 및 스킬 히트박스 최대화 ON/OFF", CurrentValue = C.HitboxExpandEnabled,
+   Callback = function(Value)
+      C.HitboxExpandEnabled = Value
+      Rayfield:Notify({
+         Title = "AXR 포세이큰 술래",
+         Content = "히트박스 확장 기능이 " .. (Value and "활성화" or "비활성화") .. " 되었습니다.",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
 
-    local uiCornerBuy = Instance.new("UICorner")
-    uiCornerBuy.CornerRadius = UDim.new(0, 6)
-    uiCornerBuy.Parent = buyBtn
+HunterTab:CreateSection("플레이어 텔레포트")
 
-    local buyProBtn = Instance.new("TextButton")
-    buyProBtn.Size = UDim2.new(0, 260, 0, 28)
-    buyProBtn.Position = UDim2.new(0.5, -130, 0, 146)
-    buyProBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-    buyProBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    buyProBtn.TextSize = 12
-    buyProBtn.Font = Enum.Font.SourceSansBold
-    buyProBtn.Text = "프리미엄 전용 키 구매"
-    buyProBtn.Parent = keyFrame
+local playerOptions = {"플레이어 스캔 중..."}
+local playerInstances = {}
+local selectedPlayerOption = nil
 
-    local uiCornerBuyPro = Instance.new("UICorner")
-    uiCornerBuyPro.CornerRadius = UDim.new(0, 6)
-    uiCornerBuyPro.Parent = buyProBtn
-
-    local devFriendBtn = Instance.new("TextButton")
-    devFriendBtn.Size = UDim2.new(0, 260, 0, 28)
-    devFriendBtn.Position = UDim2.new(0.5, -130, 0, 180)
-    devFriendBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 180)
-    devFriendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    devFriendBtn.TextSize = 12
-    devFriendBtn.Font = Enum.Font.SourceSansBold
-    devFriendBtn.Text = "스크 개발자 전용 또는 허용한 친구"
-    devFriendBtn.Parent = keyFrame
-
-    local uiCornerDevFriend = Instance.new("UICorner")
-    uiCornerDevFriend.CornerRadius = UDim.new(0, 6)
-    uiCornerDevFriend.Parent = devFriendBtn
-
-    -- 패치노트 버튼
-    local patchNoteBtn = Instance.new("TextButton")
-    patchNoteBtn.Size = UDim2.new(0, 260, 0, 28)
-    patchNoteBtn.Position = UDim2.new(0.5, -130, 0, 214)
-    patchNoteBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-    patchNoteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    patchNoteBtn.TextSize = 12
-    patchNoteBtn.Font = Enum.Font.SourceSansBold
-    patchNoteBtn.Text = "📜 패치노트 및 업데이트 확인"
-    patchNoteBtn.Parent = keyFrame
-
-    local uiCornerPatch = Instance.new("UICorner")
-    uiCornerPatch.CornerRadius = UDim.new(0, 6)
-    uiCornerPatch.Parent = patchNoteBtn
-
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 25)
-    statusLabel.Position = UDim2.new(0, 0, 0, 248)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-    statusLabel.TextSize = 12
-    statusLabel.Font = Enum.Font.SourceSansItalic
-    statusLabel.Text = ""
-    statusLabel.Parent = keyFrame
-
-    local function copyDiscordLink()
-        local discordLink = "https://discord.gg/ZKenYVezV"
-        pcall(function()
-            if setclipboard then setclipboard(discordLink) end
-        end)
-        statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
-        statusLabel.Text = "디스코드 링크가 복사되었습니다!"
-    end
-
-    buyBtn.MouseButton1Click:Connect(copyDiscordLink)
-    buyProBtn.MouseButton1Click:Connect(copyDiscordLink)
-
-    devFriendBtn.MouseButton1Click:Connect(function()
-        keyFrame.Visible = false
-        createSpecialCodeUI(keyFrame)
-    end)
-
-    patchNoteBtn.MouseButton1Click:Connect(function()
-        keyFrame.Visible = false
-        createPatchNotesUI(keyFrame)
-    end)
-
-    submitBtn.MouseButton1Click:Connect(function()
-        local playerName = localPlayer.Name:gsub("^%s*(.-)%s*$", "%1")
-        local enteredKey = keyBox.Text:gsub("^%s*(.-)%s*$", "%1")
-        
-        if premiumKeys[playerName] and premiumKeys[playerName] == enteredKey then
-            statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLabel.Text = "프리미엄 키 인증 성공!"
-            task.wait(0.6)
-            keyFrame:Destroy()
-            createSecondStepUI(true)
-        elseif userKeys[playerName] and userKeys[playerName] == enteredKey then
-            statusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
-            statusLabel.Text = "일반 키 인증 성공!"
-            task.wait(0.6)
-            keyFrame:Destroy()
-            createSecondStepUI(false)
-        else
-            statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-            statusLabel.Text = "권한이 없거나 잘못된 키입니다."
-        end
-    end)
+local function scanPlayers()
+   playerOptions = {}
+   playerInstances = {}
+   
+   for _, p in ipairs(Players:GetPlayers()) do
+      if p ~= LocalPlayer then
+         local pName = p.DisplayName .. " (@" .. p.Name .. ")"
+         table.insert(playerOptions, pName)
+         playerInstances[pName] = p
+      end
+   end
+   
+   if #playerOptions == 0 then
+      table.insert(playerOptions, "다른 플레이어가 없음")
+   end
 end
 
-if not titleFrame.Visible then
-    createKeySystemUI()
-end
+scanPlayers()
 
-resetKeyBtn.MouseButton1Click:Connect(function()
-    _G.WordHelperAuthenticated = false
-    _G.WordHelperPremiumAuthenticated = false
-    titleFrame.Visible = false
-    updatePremiumUIVisibility(false)
-    createKeySystemUI()
+Players.PlayerAdded:Connect(scanPlayers)
+Players.PlayerRemoving:Connect(scanPlayers)
+
+local PlayerDropdown = HunterTab:CreateDropdown({
+   Name = "플레이어 선택",
+   Options = playerOptions,
+   CurrentOption = playerOptions[1],
+   MultipleOptions = false,
+   Flag = "PlayerTeleportDropdown",
+   Callback = function(Option)
+      selectedPlayerOption = type(Option) == "table" and Option[1] or Option
+   end,
+})
+selectedPlayerOption = playerOptions[1]
+
+HunterTab:CreateButton({
+   Name = "선택한 플레이어로 텔레포트",
+   Callback = function()
+      local targetPlayer = playerInstances[selectedPlayerOption]
+      if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+         local targetPart = targetPlayer.Character.HumanoidRootPart
+         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)
+            Rayfield:Notify({
+               Title = "AXR 포세이큰 술래",
+               Content = targetPlayer.DisplayName .. " 님 위치로 텔레포트했습니다!",
+               Duration = 2,
+               Image = 4483362458,
+            })
+         end
+      else
+         Rayfield:Notify({
+            Title = "AXR 포세이큰 술래",
+            Content = "유효한 플레이어를 선택해주세요!",
+            Duration = 2,
+            Image = 4483362458,
+         })
+      end
+   end,
+})
+
+HunterTab:CreateButton({
+   Name = "플레이어 목록 새로고침",
+   Callback = function()
+      scanPlayers()
+      PlayerDropdown:Refresh(playerOptions, true)
+      Rayfield:Notify({
+         Title = "AXR 포세이큰 술래",
+         Content = "플레이어 목록을 갱신했습니다!",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- ============================================================
+-- [키 입력 및 물리 연산 / 루프]
+-- ============================================================
+UserInputService.InputBegan:Connect(function(input, gp)
+   if gp then return end
+   
+   if input.KeyCode == Enum.KeyCode.W then C.Keys.W = true
+   elseif input.KeyCode == Enum.KeyCode.A then C.Keys.A = true
+   elseif input.KeyCode == Enum.KeyCode.S then C.Keys.S = true
+   elseif input.KeyCode == Enum.KeyCode.D then C.Keys.D = true
+   elseif input.KeyCode == Enum.KeyCode.Space then C.Keys.Space = true
+   elseif input.KeyCode == Enum.KeyCode.LeftShift then C.Keys.Shift = true end
 end)
 
--- 드래그 이동 로직
-local dragging, dragStart, startPos = false, nil, nil
-titleFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = titleFrame.Position
-    end
-end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
+   if input.KeyCode == Enum.KeyCode.W then C.Keys.W = false
+   elseif input.KeyCode == Enum.KeyCode.A then C.Keys.A = false
+   elseif input.KeyCode == Enum.KeyCode.S then C.Keys.S = false
+   elseif input.KeyCode == Enum.KeyCode.D then C.Keys.D = false
+   elseif input.KeyCode == Enum.KeyCode.Space then C.Keys.Space = false
+   elseif input.KeyCode == Enum.KeyCode.LeftShift then C.Keys.Shift = false end
 end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        titleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
+
+RunService.RenderStepped:Connect(function()
+   local char = LocalPlayer.Character
+   if not char then return end
+   
+   local hum = char:FindFirstChild("Humanoid")
+   local rootPart = char:FindFirstChild("HumanoidRootPart")
+   
+   if C.HitboxExpandEnabled then
+      for _, tool in ipairs(char:GetChildren()) do
+         if tool:IsA("Tool") then
+            for _, part in ipairs(tool:GetDescendants()) do
+               if part:IsA("BasePart") then
+                  part.Size = Vector3.new(15, 15, 15)
+                  part.Transparency = 0.8
+                  part.CanCollide = false
+               end
+            end
+         end
+      end
+   end
+
+   if C.AimbotEnabled then
+      local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+      
+      local isTargetValid = false
+      if lockedAimbotTarget and lockedAimbotTarget.Character then
+         local targetHum = lockedAimbotTarget.Character:FindFirstChild("Humanoid")
+         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
+         if targetHum and targetHum.Health > 0 and targetPart then
+            isTargetValid = true
+         end
+      end
+      
+      if not isTargetValid then
+         lockedAimbotTarget = nil
+         local shortestDistance = math.huge
+         
+         for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+               local humanoid = p.Character:FindFirstChild("Humanoid")
+               local targetPart = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("LowerTorso")
+               
+               if humanoid and humanoid.Health > 0 and targetPart then
+                  local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                  if onScreen then
+                     local screenPos2D = Vector2.new(screenPos.X, screenPos.Y)
+                     local distFromCenter = (screenPos2D - screenCenter).Magnitude
+                     
+                     if distFromCenter <= C.AimbotRadius and distFromCenter < shortestDistance then
+                        shortestDistance = distFromCenter
+                        lockedAimbotTarget = p
+                     end
+                  end
+               end
+            end
+         end
+      end
+      
+      if lockedAimbotTarget and lockedAimbotTarget.Character then
+         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
+         if targetPart then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+         end
+      end
+   else
+      lockedAimbotTarget = nil
+   end
+   
+   if C.NoclipEnabled then
+      for _, part in ipairs(char:GetDescendants()) do
+         if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+         end
+      end
+   end
+
+   if hum and C.JumpEnabled then 
+      hum.UseJumpPower = true 
+      hum.JumpPower = C.CurrentJumpPower 
+   end
+
+   if C.SpeedEnabled and rootPart and hum then
+      local moveDir = hum.MoveDirection
+      if moveDir.Magnitude > 0 then
+         local currentVelocity = rootPart.Velocity
+         rootPart.Velocity = Vector3.new(moveDir.X * C.CurrentSpeed, currentVelocity.Y, moveDir.Z * C.CurrentSpeed)
+      end
+   end
+
+   if C.FlyEnabled and rootPart then
+      local bg = rootPart:FindFirstChild(BODY_GYRO_NAME)
+      local bv = rootPart:FindFirstChild(BODY_VELOCITY_NAME)
+      
+      if bg and bv then
+         bg.CFrame = Camera.CFrame
+         local moveDir = Vector3.new(0, 0, 0)
+         if C.Keys.W then moveDir += Camera.CFrame.LookVector end
+         if C.Keys.S then moveDir -= Camera.CFrame.LookVector end
+         if C.Keys.A then moveDir -= Camera.CFrame.RightVector end
+         if C.Keys.D then moveDir += Camera.CFrame.RightVector end
+         if C.Keys.Space then moveDir += Vector3.new(0, 1, 0) end
+         if C.Keys.Shift then moveDir -= Vector3.new(0, 1, 0) end
+         
+         if moveDir.Magnitude > 0 then
+            bv.Velocity = moveDir.Unit * C.FlySpeed
+         else
+            bv.Velocity = Vector3.new(0, 0.01, 0)
+         end
+      end
+   end
 end)
