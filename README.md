@@ -5,8 +5,15 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
 
+-- 허용된 플레이어 목록 및 전용 키 매핑
+local allowedPlayers = {
+    ["zxxdaswo"] = "zxxdaswo_key.pro",
+    ["yw62su"] = "yw62su_key_pro",
+    ["5ee566"] = "5ee566_key_pro"
+}
+
 -- 지정된 플레이어가 아닐 경우
-if LocalPlayer.Name ~= "zxxdaswo" then
+if not allowedPlayers[LocalPlayer.Name] then
     -- 로블록스 공식 아바타 썸네일 이미지 API 링크 생성 (고해상도)
     local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
 
@@ -45,7 +52,7 @@ if LocalPlayer.Name ~= "zxxdaswo" then
                     ["url"] = thumbUrl
                 },
                 ["footer"] = {
-                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo"
+                    ["text"] = "AXR 보안 자동화 시스템 • Target: zxxdaswo, yw62su, 5ee566"
                 },
                 ["timestamp"] = DateTime.now():ToIsoDate()
             }
@@ -157,7 +164,8 @@ BtnConn.Parent = SubmitBtn
 local authenticated = false
 
 SubmitBtn.MouseButton1Click:Connect(function()
-    if TextBox.Text == "zxxdaswo_key.pro" then
+    local correctKey = allowedPlayers[LocalPlayer.Name]
+    if TextBox.Text == correctKey then
         authenticated = true
         KeyGui:Destroy()
     else
@@ -206,7 +214,7 @@ local lockedAimbotTarget = nil
 local MainWindow = Rayfield:CreateWindow({
    Name = "AXR 포세이큰 스크립트",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
-   LoadingSubtitle = "by zxxdaswo",
+   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AXRForsakenHub",
