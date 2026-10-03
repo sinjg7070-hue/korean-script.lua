@@ -14,19 +14,20 @@ local allowedPlayers = {
     ["jihoo215500_b"] = "jihoo215500_b_key_pro"
 }
 
--- 시간제 공용 키 설정
+-- 시간제 공용 키 설정 (10분으로 변경)
 local SHARED_TIME_KEY = "shared_time_key20"
-local TIME_LIMIT_DURATION = 20 * 60 -- 20분 (초 단위)
+local TIME_LIMIT_DURATION = 10 * 60 -- 10분 (초 단위)
 
 local isPermanentUser = allowedPlayers[LocalPlayer.Name] ~= nil
 
 -- ============================================================
--- [블랙리스트 및 오입력 횟수 영구 검증 로직]
+-- [개인 블랙리스트 및 오입력 횟수 검증 로직]
 -- ============================================================
 local userIdStr = tostring(LocalPlayer.UserId)
 local blacklistFileName = "AXR_Blacklist_" .. userIdStr .. ".txt"
 local failCountFileName = "AXR_FailCount_" .. userIdStr .. ".txt"
 local timeExpiryFileName = "AXR_TimeExpiry_" .. userIdStr .. ".txt"
+local keyBlacklistFileName = "AXR_KeyBlacklist.txt" -- 공용 키 차단 파일
 
 local isBlacklisted = false
 
@@ -36,27 +37,8 @@ pcall(function()
     end
 end)
 
--- 이미 블랙리스트에 오른 유저라면 즉시 차단
 if isBlacklisted then
     LocalPlayer:Kick("[AXR 보안 시스템] 블랙리스트에 등록되어 스크립트를 사용할 수 없습니다.")
-    return
-end
-
--- 이미 저장된 시간제 키 만료 시각이 있는지 검사 (재접속해도 시간 연동)
-local existingExpiryTime = nil
-pcall(function()
-    if isfile and isfile(timeExpiryFileName) then
-        local content = readfile(timeExpiryFileName)
-        existingExpiryTime = tonumber(content)
-    end
-end)
-
--- 이미 시간이 다 지난 상태에서 다시 들어온 경우 즉시 블랙리스트 처리
-if existingExpiryTime and os.time() >= existingExpiryTime then
-    pcall(function()
-        if writefile then writefile(blacklistFileName, "BLACKLISTED_EXPIRED") end
-    end)
-    LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키 시간이 만료되어 블랙리스트에 올랐습니다.")
     return
 end
 
@@ -182,7 +164,46 @@ NoticeLabel.Font = Enum.Font.SourceSans
 NoticeLabel.Parent = MainFrame
 
 local authenticated = false
-local isUsingSharedTimeKey = existingExpiryTime ~= nil
+local isUsingSharedTimeKey = false
+
+-- 공용 키 자체가 차단(만료)되었는지 확인
+local isKeyBlacklisted = false
+pcall(function()
+    if isfile and isfile(keyBlacklistFileName) then
+        local content = readfile(keyBlacklistFileName)
+        if content:find(SHARED_TIME_KEY) then
+            isKeyBlacklisted = true
+        end
+    end
+end)
+
+if isKeyBlacklisted and not isPermanentUser then
+    KeyGui:Destroy()
+    LocalPlayer:Kick("[AXR 보안 시스템] 해당 공용 시간제 키는 기간이 만료되어 사용할 수 없습니다.")
+    return
+end
+
+-- 이미 저장된 시간제 키 만료 시각 검사
+local existingExpiryTime = nil
+pcall(function()
+    if isfile and isfile(timeExpiryFileName) then
+        local content = readfile(timeExpiryFileName)
+        existingExpiryTime = tonumber(content)
+    end
+end)
+
+if existingExpiryTime and not isPermanentUser then
+    if os.time() >= existingExpiryTime then
+        pcall(function()
+            if writefile then writefile(keyBlacklistFileName, SHARED_TIME_KEY) end
+        end)
+        KeyGui:Destroy()
+        LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키 시간이 만료되어 키가 차단되었습니다.")
+        return
+    else
+        isUsingSharedTimeKey = true
+    end
+end
 
 local function getFailCount()
     local count = 0
@@ -208,16 +229,20 @@ SubmitBtn.MouseButton1Click:Connect(function()
     if isPermanentUser and inputKey == allowedPlayers[LocalPlayer.Name] then
         authenticated = true
         KeyGui:Destroy()
-    elseif inputKey == SHARED_TIME_KEY or existingExpiryTime then
+    elseif inputKey == SHARED_TIME_KEY then
+        if isKeyBlacklisted then
+            NoticeLabel.Text = "만료된 공용 키입니다."
+            return
+        end
+        
         isUsingSharedTimeKey = true
         authenticated = true
         
-        -- 기존 만료 시간이 없을 때만 새로 생성
         if not existingExpiryTime then
-            existingExpiryTime = os.time() + TIME_LIMIT_DURATION
             pcall(function()
                 if writefile then
-                    writefile(timeExpiryFileName, tostring(existingExpiryTime))
+                    local expiry = os.time() + TIME_LIMIT_DURATION
+                    writefile(timeExpiryFileName, tostring(expiry))
                 end
             end)
         end
@@ -241,20 +266,17 @@ SubmitBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 영구 유저이거나 이미 시간제 키가 인증되어 있는 경우 창을 건너뜀
-if isPermanentUser or existingExpiryTime then
-    authenticated = true
-    KeyGui:Destroy()
-end
-
 repeat task.wait() until authenticated
 
 -- ============================================================
--- [공용 시간제 사용자 영구 저장 기반 남은 시간 표시 및 블랙리스트 만료 관리]
+-- [공용 시간제 사용자 만료 관리 루프]
 -- ============================================================
 if isUsingSharedTimeKey then
     task.spawn(function()
         local targetExpiryTime = existingExpiryTime
+        if not targetExpiryTime then
+            targetExpiryTime = os.time() + TIME_LIMIT_DURATION
+        end
         
         local timerGui = Instance.new("ScreenGui")
         timerGui.Name = "AXRTimeLimitGui"
@@ -276,14 +298,15 @@ if isUsingSharedTimeKey then
             if leftTime <= 0 then
                 timerLabel.Text = "⚠️ [AXR] 공용 시간제 키 기간 만료됨!"
                 
+                -- 유저가 아닌 키 자체를 차단 파일에 기록
                 pcall(function()
                     if writefile then
-                        writefile(blacklistFileName, "BLACKLISTED_EXPIRED")
+                        writefile(keyBlacklistFileName, SHARED_TIME_KEY)
                     end
                 end)
                 
                 task.wait(1)
-                LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키(20분)가 만료되어 블랙리스트에 등록 및 차단되었습니다.")
+                LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키(10분)가 만료되어 해당 키가 차단되었습니다.")
                 break
             else
                 local mins = math.floor(leftTime / 60)
