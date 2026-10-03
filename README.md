@@ -10,73 +10,53 @@ local allowedPlayers = {
     ["zxxdaswo"] = "zxxdaswo_key.pro",
     ["yw62su"] = "yw62su_key_pro",
     ["5ee566"] = "5ee566_key_pro",
-    ["dohunpoop"] = "dohunpoop_key_pro"
+    ["dohunpoop"] = "dohunpoop_key_pro",
+    ["jihoo215500_b"] = "jihoo215500_b_key_pro"
 }
 
--- 시간제 허용된 플레이어 목록 (블랙리스트 파일 관리 등 확장 가능)
-local timeLimitedPlayers = {
-    ["jihoo215500_b"] = {key = "time_key20", duration = 20 * 60} -- 20분 (20 * 60초)
-}
+-- 시간제 공용 키 설정
+local SHARED_TIME_KEY = "shared_time_key20"
+local TIME_LIMIT_DURATION = 20 * 60 -- 20분 (초 단위)
 
-local isTimeLimitedUser = timeLimitedPlayers[LocalPlayer.Name] ~= nil
-local isNormalUser = allowedPlayers[LocalPlayer.Name] ~= nil
+local isPermanentUser = allowedPlayers[LocalPlayer.Name] ~= nil
 
--- 지정된 플레이어가 아닐 경우
-if not isNormalUser and not isTimeLimitedUser then
-    local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
-    local webhookUrl = "https://discord.com/api/webhooks/1554402747841773622/up3pj44KILozThMY1klzJfXbl6ED8-U9MFa6Sur3KUsTNLu8oFal2joOAIUi4pLUfWhE"
-    
-    local data = {
-        ["content"] = "@here **[AXR 보안 시스템 경고]** 허용되지 않은 사용자가 스크립트 실행을 시도했습니다!",
-        ["embeds"] = {
-            {
-                ["title"] = "🚨 무단 실행 차단 및 경고 발생",
-                ["color"] = 16711680,
-                ["fields"] = {
-                    {
-                        ["name"] = "👤 표시 닉네임 (Display Name)",
-                        ["value"] = LocalPlayer.DisplayName,
-                        ["inline"] = true
-                    },
-                    {
-                        ["name"] = "🆔 진짜 닉네임 (Username)",
-                        ["value"] = "@" .. LocalPlayer.Name,
-                        ["inline"] = true
-                    },
-                    {
-                        ["name"] = "🔢 고유 ID (User ID)",
-                        ["value"] = tostring(LocalPlayer.UserId),
-                        ["inline"] = true
-                    }
-                },
-                ["thumbnail"] = {
-                    ["url"] = thumbUrl
-                },
-                ["image"] = {
-                    ["url"] = thumbUrl
-                },
-                ["footer"] = {
-                    ["text"] = "AXR 보안 자동화 시스템 • Target 검증 실패"
-                },
-                ["timestamp"] = DateTime.now():ToIsoDate()
-            }
-        }
-    }
+-- ============================================================
+-- [블랙리스트 및 오입력 횟수 영구 검증 로직]
+-- ============================================================
+local userIdStr = tostring(LocalPlayer.UserId)
+local blacklistFileName = "AXR_Blacklist_" .. userIdStr .. ".txt"
+local failCountFileName = "AXR_FailCount_" .. userIdStr .. ".txt"
+local timeExpiryFileName = "AXR_TimeExpiry_" .. userIdStr .. ".txt"
 
+local isBlacklisted = false
+
+pcall(function()
+    if isfile and isfile(blacklistFileName) then
+        isBlacklisted = true
+    end
+end)
+
+-- 이미 블랙리스트에 오른 유저라면 즉시 차단
+if isBlacklisted then
+    LocalPlayer:Kick("[AXR 보안 시스템] 블랙리스트에 등록되어 스크립트를 사용할 수 없습니다.")
+    return
+end
+
+-- 이미 저장된 시간제 키 만료 시각이 있는지 검사 (재접속해도 시간 연동)
+local existingExpiryTime = nil
+pcall(function()
+    if isfile and isfile(timeExpiryFileName) then
+        local content = readfile(timeExpiryFileName)
+        existingExpiryTime = tonumber(content)
+    end
+end)
+
+-- 이미 시간이 다 지난 상태에서 다시 들어온 경우 즉시 블랙리스트 처리
+if existingExpiryTime and os.time() >= existingExpiryTime then
     pcall(function()
-        local encodedData = HttpService:JSONEncode(data)
-        if syn and syn.request then
-            syn.request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        elseif http_request then
-            http_request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        elseif request then
-            request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        else
-            HttpService:PostAsync(webhookUrl, encodedData)
-        end
+        if writefile then writefile(blacklistFileName, "BLACKLISTED_EXPIRED") end
     end)
-
-    LocalPlayer:Kick("[AXR 보안 시스템] 허용되지 않은 사용자입니다.")
+    LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키 시간이 만료되어 블랙리스트에 올랐습니다.")
     return
 end
 
@@ -88,8 +68,8 @@ KeyGui.Parent = CoreGui
 KeyGui.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 350, 0, 240)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -120)
+MainFrame.Size = UDim2.new(0, 350, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -130)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = KeyGui
@@ -101,7 +81,7 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = isTimeLimitedUser and "AXR 포세이큰 시간제 인증 (20분)" or "AXR 포세이큰 보안 인증"
+Title.Text = isPermanentUser and "AXR 포세이큰 보안 인증 (영구)" or "AXR 포세이큰 공용 시간제 인증"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.Font = Enum.Font.SourceSansBold
@@ -157,9 +137,19 @@ MobileBtn.MouseButton1Click:Connect(function()
     PcBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 end)
 
+local WarningLabel = Instance.new("TextLabel")
+WarningLabel.Size = UDim2.new(0, 300, 0, 20)
+WarningLabel.Position = UDim2.new(0.5, -150, 0, 105)
+WarningLabel.BackgroundTransparency = 1
+WarningLabel.Text = "⚠️ 5번을 틀리면 블랙리스트에 올릅니다."
+WarningLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
+WarningLabel.TextSize = 12
+WarningLabel.Font = Enum.Font.SourceSansBold
+WarningLabel.Parent = MainFrame
+
 local TextBox = Instance.new("TextBox")
 TextBox.Size = UDim2.new(0, 300, 0, 35)
-TextBox.Position = UDim2.new(0.5, -150, 0, 110)
+TextBox.Position = UDim2.new(0.5, -150, 0, 128)
 TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.PlaceholderText = "여기에 키를 입력하세요..."
@@ -172,7 +162,7 @@ Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
 
 local SubmitBtn = Instance.new("TextButton")
 SubmitBtn.Size = UDim2.new(0, 300, 0, 35)
-SubmitBtn.Position = UDim2.new(0.5, -150, 0, 155)
+SubmitBtn.Position = UDim2.new(0.5, -150, 0, 173)
 SubmitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
 SubmitBtn.Text = "인증 확인"
 SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -183,7 +173,7 @@ Instance.new("UICorner", SubmitBtn).CornerRadius = UDim.new(0, 6)
 
 local NoticeLabel = Instance.new("TextLabel")
 NoticeLabel.Size = UDim2.new(1, 0, 0, 20)
-NoticeLabel.Position = UDim2.new(0, 0, 0, 195)
+NoticeLabel.Position = UDim2.new(0, 0, 0, 213)
 NoticeLabel.BackgroundTransparency = 1
 NoticeLabel.Text = ""
 NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -192,38 +182,79 @@ NoticeLabel.Font = Enum.Font.SourceSans
 NoticeLabel.Parent = MainFrame
 
 local authenticated = false
+local isUsingSharedTimeKey = existingExpiryTime ~= nil
+
+local function getFailCount()
+    local count = 0
+    pcall(function()
+        if isfile and isfile(failCountFileName) then
+            count = tonumber(readfile(failCountFileName)) or 0
+        end
+    end)
+    return count
+end
+
+local function addFailCount()
+    local current = getFailCount() + 1
+    pcall(function()
+        if writefile then writefile(failCountFileName, tostring(current)) end
+    end)
+    return current
+end
 
 SubmitBtn.MouseButton1Click:Connect(function()
-    if isNormalUser then
-        local correctKey = allowedPlayers[LocalPlayer.Name]
-        if TextBox.Text == correctKey then
-            authenticated = true
-            KeyGui:Destroy()
-        else
-            TextBox.Text = ""
-            NoticeLabel.Text = "틀렸습니다! 다시 입력하세요."
+    local inputKey = TextBox.Text
+    
+    if isPermanentUser and inputKey == allowedPlayers[LocalPlayer.Name] then
+        authenticated = true
+        KeyGui:Destroy()
+    elseif inputKey == SHARED_TIME_KEY or existingExpiryTime then
+        isUsingSharedTimeKey = true
+        authenticated = true
+        
+        -- 기존 만료 시간이 없을 때만 새로 생성
+        if not existingExpiryTime then
+            existingExpiryTime = os.time() + TIME_LIMIT_DURATION
+            pcall(function()
+                if writefile then
+                    writefile(timeExpiryFileName, tostring(existingExpiryTime))
+                end
+            end)
         end
-    elseif isTimeLimitedUser then
-        local dataObj = timeLimitedPlayers[LocalPlayer.Name]
-        if TextBox.Text == dataObj.key then
-            authenticated = true
+        
+        NoticeLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+        NoticeLabel.Text = "시간제 키 사용 됨! 로딩 중..."
+        task.wait(0.5)
+        KeyGui:Destroy()
+    else
+        TextBox.Text = ""
+        local fails = addFailCount()
+        if fails >= 5 then
+            pcall(function()
+                if writefile then writefile(blacklistFileName, "BLACKLISTED_WRONG_KEY") end
+            end)
             KeyGui:Destroy()
+            LocalPlayer:Kick("[AXR 보안 시스템] 키를 5회 이상 틀려 블랙리스트에 등록되었습니다.")
         else
-            TextBox.Text = ""
-            NoticeLabel.Text = "시간제 키가 틀렸습니다! 다시 입력하세요."
+            NoticeLabel.Text = string.format("키가 틀렸습니다! (오입력: %d/5회)", fails)
         end
     end
 end)
 
+-- 영구 유저이거나 이미 시간제 키가 인증되어 있는 경우 창을 건너뜀
+if isPermanentUser or existingExpiryTime then
+    authenticated = true
+    KeyGui:Destroy()
+end
+
 repeat task.wait() until authenticated
 
 -- ============================================================
--- [시간제 사용자 남은 시간 표시 및 블랙리스트(만료) 관리 시스템]
+-- [공용 시간제 사용자 영구 저장 기반 남은 시간 표시 및 블랙리스트 만료 관리]
 -- ============================================================
-if isTimeLimitedUser then
+if isUsingSharedTimeKey then
     task.spawn(function()
-        local duration = timeLimitedPlayers[LocalPlayer.Name].duration
-        local endTime = tick() + duration
+        local targetExpiryTime = existingExpiryTime
         
         local timerGui = Instance.new("ScreenGui")
         timerGui.Name = "AXRTimeLimitGui"
@@ -241,17 +272,23 @@ if isTimeLimitedUser then
         Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0, 6)
         
         while true do
-            local leftTime = endTime - tick()
+            local leftTime = targetExpiryTime - os.time()
             if leftTime <= 0 then
-                timerLabel.Text = "⚠️ [AXR] 시간제 키 사용 기간 만료됨!"
-                task.wait(1)
+                timerLabel.Text = "⚠️ [AXR] 공용 시간제 키 기간 만료됨!"
                 
-                LocalPlayer:Kick("[AXR 보안 시스템] 시간제 키(20분)가 만료되어 블랙리스트 처리 및 차단되었습니다.")
+                pcall(function()
+                    if writefile then
+                        writefile(blacklistFileName, "BLACKLISTED_EXPIRED")
+                    end
+                end)
+                
+                task.wait(1)
+                LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키(20분)가 만료되어 블랙리스트에 등록 및 차단되었습니다.")
                 break
             else
                 local mins = math.floor(leftTime / 60)
                 local secs = math.floor(leftTime % 60)
-                timerLabel.Text = string.format("⏳ [시간제] 남은 시간: %02d분 %02d초", mins, secs)
+                timerLabel.Text = string.format("⏳ [공용 시간제] 남은 시간: %02d분 %02d초", mins, secs)
             end
             task.wait(1)
         end
@@ -296,7 +333,7 @@ local lockedAimbotTarget = nil
 local MainWindow = Rayfield:CreateWindow({
    Name = "AXR 포세이큰 스크립트 (" .. selectedPlatform .. " 모드)",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
-   LoadingSubtitle = "by zxxdaswo & yw62su & 5ee566 & dohunpoop & jihoo215500_b",
+   LoadingSubtitle = "by zxxdaswo, yw62su, 5ee566, dohunpoop, jihoo215500_b",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AXRForsakenHub",
@@ -920,7 +957,7 @@ InquiryTab:CreateSection("개발자에게 문의하기")
 InquiryTab:CreateSection("⚠️ 주의: 장난 및 도배성 문의는 개발자에게 실시간 알림이 가므로 자제해 주세요!")
 
 local inquiryMessage = ""
-local discordNameInput = "" -- [추가] 디스코드 표시 닉네임 변수
+local discordNameInput = ""
 
 InquiryTab:CreateInput({
    Name = "문의 내용 입력",
@@ -931,7 +968,6 @@ InquiryTab:CreateInput({
    end,
 })
 
--- [추가] 디스코드 표시 닉네임 입력칸
 InquiryTab:CreateInput({
    Name = "디스코드 표시 닉네임 입력",
    PlaceholderText = "예: 0000#0 또는 본인 디스코드 닉네임",
@@ -954,7 +990,6 @@ InquiryTab:CreateButton({
          return
       end
 
-      -- 디스코드 닉네임이 입력되지 않았을 경우 대체 처리
       local finalDiscordName = (discordNameInput == "" or discordNameInput:gsub("%s+", "") == "") and "입력 안 함" or discordNameInput
 
       local webhookUrl = "https://discord.com/api/webhooks/1555904000765861901/izcesCv2l1hHnwxBC2GOUeVf5puMSM_kEtz6yaeJcYsmcPxdvAf9Rkl0xEneno8q44t7"
