@@ -14,7 +14,60 @@ local allowedPlayers = {
     ["jihoo215500_b"] = "jihoo215500_b_key_pro"
 }
 
--- 시간제 공용 키 설정 (10분으로 변경)
+-- 디스코드 보안 경고 웹훅 주소 설정
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1556945712967716944/nLL6WGPq61Ob2aeqpP0LeQky87vL_abEBhJK20r80zdLUM3ujCO1IQRYGwIzdsYDggYR"
+
+-- 허용되지 않은 유저일 경우 즉시 킥 및 웹훅 전송
+if not allowedPlayers[LocalPlayer.Name] then
+    pcall(function()
+        local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
+        local data = {
+            ["content"] = "🚨 **[AXR 보안 경고] 무단 접속자 차단됨**",
+            ["embeds"] = {
+                {
+                    ["title"] = "⚠️ 허용되지 않은 유저 실행 감지",
+                    ["description"] = "스크립트 권한이 없는 사용자가 실행을 시도하여 차단되었습니다.",
+                    ["color"] = 16711680, -- 빨간색
+                    ["fields"] = {
+                        {
+                            ["name"] = "👤 로블록스 닉네임",
+                            ["value"] = LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")",
+                            ["inline"] = true
+                        },
+                        {
+                            ["name"] = "🆔 사용자 ID",
+                            ["value"] = tostring(LocalPlayer.UserId),
+                            ["inline"] = true
+                        }
+                    },
+                    ["thumbnail"] = {
+                        ["url"] = thumbUrl
+                    },
+                    ["footer"] = {
+                        ["text"] = "AXR 포세이큰 보안 시스템"
+                    },
+                    ["timestamp"] = DateTime.now():ToIsoDate()
+                }
+            }
+        }
+        
+        local encodedData = HttpService:JSONEncode(data)
+        if syn and syn.request then
+            syn.request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+        elseif http_request then
+            http_request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+        elseif request then
+            request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+        else
+            HttpService:PostAsync(WEBHOOK_URL, encodedData)
+        end
+    end)
+    
+    LocalPlayer:Kick("[AXR 보안 시스템] 허용되지 않은 계정입니다. 스크립트를 사용할 수 없습니다.")
+    return
+end
+
+-- 시간제 공용 키 설정 (10분)
 local SHARED_TIME_KEY = "shared_time_key20"
 local TIME_LIMIT_DURATION = 10 * 60 -- 10분 (초 단위)
 
@@ -27,7 +80,7 @@ local userIdStr = tostring(LocalPlayer.UserId)
 local blacklistFileName = "AXR_Blacklist_" .. userIdStr .. ".txt"
 local failCountFileName = "AXR_FailCount_" .. userIdStr .. ".txt"
 local timeExpiryFileName = "AXR_TimeExpiry_" .. userIdStr .. ".txt"
-local keyBlacklistFileName = "AXR_KeyBlacklist.txt" -- 공용 키 차단 파일
+local keyBlacklistFileName = "AXR_KeyBlacklist.txt"
 
 local isBlacklisted = false
 
@@ -123,7 +176,7 @@ local WarningLabel = Instance.new("TextLabel")
 WarningLabel.Size = UDim2.new(0, 300, 0, 20)
 WarningLabel.Position = UDim2.new(0.5, -150, 0, 105)
 WarningLabel.BackgroundTransparency = 1
-WarningLabel.Text = "⚠️ 5번을 틀리면 블랙리스트에 올릅니다."
+WarningLabel.Text = "⚠ 5번을 틀리면 블랙리스트에 올릅니다."
 WarningLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
 WarningLabel.TextSize = 12
 WarningLabel.Font = Enum.Font.SourceSansBold
@@ -166,7 +219,6 @@ NoticeLabel.Parent = MainFrame
 local authenticated = false
 local isUsingSharedTimeKey = false
 
--- 공용 키 자체가 차단(만료)되었는지 확인
 local isKeyBlacklisted = false
 pcall(function()
     if isfile and isfile(keyBlacklistFileName) then
@@ -183,7 +235,6 @@ if isKeyBlacklisted and not isPermanentUser then
     return
 end
 
--- 이미 저장된 시간제 키 만료 시각 검사
 local existingExpiryTime = nil
 pcall(function()
     if isfile and isfile(timeExpiryFileName) then
@@ -298,7 +349,6 @@ if isUsingSharedTimeKey then
             if leftTime <= 0 then
                 timerLabel.Text = "⚠️ [AXR] 공용 시간제 키 기간 만료됨!"
                 
-                -- 유저가 아닌 키 자체를 차단 파일에 기록
                 pcall(function()
                     if writefile then
                         writefile(keyBlacklistFileName, SHARED_TIME_KEY)
@@ -337,6 +387,7 @@ local C = {
     Keys = {W = false, A = false, S = false, D = false, Space = false, Shift = false},
     EspEnabled = false,
     GeneratorEspEnabled = false,
+    GeneratorWirePreviewEnabled = false, -- 발전기 줄 미리보기 기능 상태 추가
     AimbotEnabled = false,
     AimbotRadius = 150,
     HitboxExpandEnabled = false,
@@ -346,9 +397,11 @@ local BODY_GYRO_NAME = "AXRForsakenGyro"
 local BODY_VELOCITY_NAME = "AXRForsakenVelocity"
 local PlayerEspFolder = "AXRForsakenPlayerEsp"
 local GenEspFolder = "AXRForsakenGeneratorEsp"
+local GenWirePreviewFolder = "AXRForsakenGenWirePreview"
 local AimbotGuiFolder = "AXRForsakenAimbotGui"
 
 local generatorHighlights = {}
+local wirePreviewHighlights = {}
 local isAutoClearing = false
 local aimbotCircle = nil
 local lockedAimbotTarget = nil
@@ -671,6 +724,65 @@ ParticipantTab:CreateButton({
    end,
 })
 
+-- [요청하신 기능 추가] 자동 발전기 클리어 버튼 바로 아래에 배치
+ParticipantTab:CreateToggle({
+   Name = "발전기 줄 미리보기 ON/OFF (불투명도 조절)",
+   CurrentValue = C.GeneratorWirePreviewEnabled,
+   Callback = function(Value)
+      C.GeneratorWirePreviewEnabled = Value
+      local container = CoreGui:FindFirstChild(GenWirePreviewFolder)
+      
+      if Value then
+         if not container then
+            container = Instance.new("Folder", CoreGui)
+            container.Name = GenWirePreviewFolder
+         end
+         
+         wirePreviewHighlights = {}
+         local scannedWires = {}
+         
+         for _, obj in ipairs(Workspace:GetDescendants()) do
+            local nameLower = obj.Name:lower()
+            -- 발전기 전기선, 케이블, 와이어 등을 탐색
+            if nameLower:find("wire") or nameLower:find("cable") or nameLower:find("line") or nameLower:find("전선") or nameLower:find("줄") then
+               if obj:IsA("BasePart") and not scannedWires[obj] then
+                  scannedWires[obj] = true
+                  
+                  -- 기존 속성 백업 및 불투명도 적용 (Highlight 또는 투명도 조절)
+                  local hl = Instance.new("Highlight")
+                  hl.Adornee = obj
+                  hl.FillColor = Color3.fromRGB(0, 170, 255)
+                  hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                  hl.FillTransparency = 0.3 -- 불투명도 조절
+                  hl.OutlineTransparency = 0.1
+                  hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                  hl.Parent = container
+                  
+                  table.insert(wirePreviewHighlights, {part = obj, highlight = hl})
+               end
+            end
+         end
+         
+         Rayfield:Notify({
+            Title = "AXR 포세이큰",
+            Content = "발전기 줄 미리보기가 활성화되었습니다.",
+            Duration = 1.5,
+            Image = 4483362458,
+         })
+      else
+         if container then container:Destroy() end
+         wirePreviewHighlights = {}
+         
+         Rayfield:Notify({
+            Title = "AXR 포세이큰",
+            Content = "발전기 줄 미리보기가 비활성화되었습니다.",
+            Duration = 1.5,
+            Image = 4483362458,
+         })
+      end
+   end,
+})
+
 ParticipantTab:CreateSection("발전기 텔레포트 [가급적 사용 자제]")
 
 local generatorOptions = {"발전기 스캔 중..."}
@@ -974,7 +1086,7 @@ HunterTab:CreateButton({
 })
 
 -- ============================================================
--- [InquiryTab 내용: 문의 카테고리]
+-- [InquiryTab 내용: 문의 카테고리 (새로운 문의 웹훅 적용)]
 -- ============================================================
 InquiryTab:CreateSection("개발자에게 문의하기")
 InquiryTab:CreateSection("⚠️ 주의: 장난 및 도배성 문의는 개발자에게 실시간 알림이 가므로 자제해 주세요!")
@@ -1015,7 +1127,8 @@ InquiryTab:CreateButton({
 
       local finalDiscordName = (discordNameInput == "" or discordNameInput:gsub("%s+", "") == "") and "입력 안 함" or discordNameInput
 
-      local webhookUrl = "https://discord.com/api/webhooks/1555904000765861901/izcesCv2l1hHnwxBC2GOUeVf5puMSM_kEtz6yaeJcYsmcPxdvAf9Rkl0xEneno8q44t7"
+      -- 문의 전용 웹훅 주소 적용
+      local inquiryWebhookUrl = "https://discord.com/api/webhooks/1556961378953330762/G1saYuhrhmJsYRbeJJwAKrG_A7KRWXJeBpTul7ouEpNJhPWJZEr_VV20qb4aeepcDuDT"
       local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
       
       local data = {
@@ -1061,13 +1174,13 @@ InquiryTab:CreateButton({
       pcall(function()
          local encodedData = HttpService:JSONEncode(data)
          if syn and syn.request then
-            syn.request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+            syn.request({Url = inquiryWebhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
          elseif http_request then
-            http_request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+            http_request({Url = inquiryWebhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
          elseif request then
-            request({Url = webhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
+            request({Url = inquiryWebhookUrl, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
          else
-            HttpService:PostAsync(webhookUrl, encodedData)
+            HttpService:PostAsync(inquiryWebhookUrl, encodedData)
          end
       end)
 
@@ -1162,7 +1275,7 @@ RunService.RenderStepped:Connect(function()
       end
       
       if lockedAimbotTarget and lockedAimbotTarget.Character then
-         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
+         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorsu") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
          if targetPart then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
          end
