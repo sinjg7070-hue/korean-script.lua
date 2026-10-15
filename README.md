@@ -1,110 +1,42 @@
 -- ============================================================
--- [디스코드 웹훅 경고 및 강력한 닉네임 검증 시스템]
+-- [AXR 포세이큰 실시간 선착순 키 인증 및 문의 시스템]
 -- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
 
--- 영구 허용된 플레이어 목록 및 전용 키 매핑
-local allowedPlayers = {
-    ["zxxdaswo"] = "zxxdaswo_key.pro",
-    ["yw62su"] = "yw62su_key_pro",
-    ["5ee566"] = "5ee566_key_pro",
-    ["dohunpoop"] = "dohunpoop_key_pro",
-    ["jihoo215500_b"] = "jihoo215500_b_key_pro"
-}
+-- 포세이큰 전용 JSONBin 설정 정보
+local BIN_ID = "6ad097f1ffd5d160536cd767"
+local MASTER_KEY = "$2a$10$QPyr8Ml7IIDNyKLlLP98ZeLsYHN8VUyWfQnxyemwCiNF63WsgRx9O"
+local SAVE_FILE_NAME = "AXR_Forsaken_Auth.json"
 
--- 디스코드 보안 경고 웹훅 주소 설정
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1556945712967716944/nLL6WGPq61Ob2aeqpP0LeQky87vL_abEBhJK20r80zdLUM3ujCO1IQRYGwIzdsYDggYR"
-
--- 허용되지 않은 유저일 경우 즉시 킥 및 웹훅 전송
-if not allowedPlayers[LocalPlayer.Name] then
-    pcall(function()
-        local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
-        local data = {
-            ["content"] = "🚨 **[AXR 보안 경고] 무단 접속자 차단됨**",
-            ["embeds"] = {
-                {
-                    ["title"] = "⚠️ 허용되지 않은 유저 실행 감지",
-                    ["description"] = "스크립트 권한이 없는 사용자가 실행을 시도하여 차단되었습니다.",
-                    ["color"] = 16711680, -- 빨간색
-                    ["fields"] = {
-                        {
-                            ["name"] = "👤 로블록스 닉네임",
-                            ["value"] = LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")",
-                            ["inline"] = true
-                        },
-                        {
-                            ["name"] = "🆔 사용자 ID",
-                            ["value"] = tostring(LocalPlayer.UserId),
-                            ["inline"] = true
-                        }
-                    },
-                    ["thumbnail"] = {
-                        ["url"] = thumbUrl
-                    },
-                    ["footer"] = {
-                        ["text"] = "AXR 포세이큰 보안 시스템"
-                    },
-                    ["timestamp"] = DateTime.now():ToIsoDate()
-                }
-            }
-        }
-        
-        local encodedData = HttpService:JSONEncode(data)
-        if syn and syn.request then
-            syn.request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        elseif http_request then
-            http_request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        elseif request then
-            request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encodedData})
-        else
-            HttpService:PostAsync(WEBHOOK_URL, encodedData)
+-- 로컬 파일 인증 확인 함수
+local function loadAuthFile()
+    local success, result = pcall(function()
+        if isfile and isfile(SAVE_FILE_NAME) then
+            local content = readfile(SAVE_FILE_NAME)
+            return HttpService:JSONDecode(content)
         end
     end)
-    
-    LocalPlayer:Kick("[AXR 보안 시스템] 허용되지 않은 계정입니다. 스크립트를 사용할 수 없습니다.")
-    return
-end
-
--- 시간제 공용 키 설정 (10분)
-local SHARED_TIME_KEY = "shared_time_key20"
-local TIME_LIMIT_DURATION = 10 * 60 -- 10분 (초 단위)
-
-local isPermanentUser = allowedPlayers[LocalPlayer.Name] ~= nil
-
--- ============================================================
--- [개인 블랙리스트 및 오입력 횟수 검증 로직]
--- ============================================================
-local userIdStr = tostring(LocalPlayer.UserId)
-local blacklistFileName = "AXR_Blacklist_" .. userIdStr .. ".txt"
-local failCountFileName = "AXR_FailCount_" .. userIdStr .. ".txt"
-local timeExpiryFileName = "AXR_TimeExpiry_" .. userIdStr .. ".txt"
-local keyBlacklistFileName = "AXR_KeyBlacklist.txt"
-
-local isBlacklisted = false
-
-pcall(function()
-    if isfile and isfile(blacklistFileName) then
-        isBlacklisted = true
+    if success and result and result.Authenticated then
+        return result.ActiveKey
     end
-end)
-
-if isBlacklisted then
-    LocalPlayer:Kick("[AXR 보안 시스템] 블랙리스트에 등록되어 스크립트를 사용할 수 없습니다.")
-    return
+    return nil
 end
 
-local CoreGui = game:GetService("CoreGui")
+local savedAuthKey = loadAuthFile()
+local authenticated = (savedAuthKey ~= nil)
 
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "AXRKeySystem"
 KeyGui.Parent = CoreGui
 KeyGui.IgnoreGuiInset = true
+KeyGui.Enabled = not authenticated
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 350, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -130)
+MainFrame.Size = UDim2.new(0, 350, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -120)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = KeyGui
@@ -116,7 +48,7 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = isPermanentUser and "AXR 포세이큰 보안 인증 (영구)" or "AXR 포세이큰 공용 시간제 인증"
+Title.Text = "AXR 포세이큰 실시간 선착순 인증"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.Font = Enum.Font.SourceSansBold
@@ -126,7 +58,7 @@ local Subtitle = Instance.new("TextLabel")
 Subtitle.Size = UDim2.new(1, 0, 0, 25)
 Subtitle.Position = UDim2.new(0, 0, 0, 35)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "기종을 선택하고 보안 키를 입력해주세요."
+Subtitle.Text = "기종을 선택하고 라이선스 키를 입력해주세요."
 Subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
 Subtitle.TextSize = 13
 Subtitle.Font = Enum.Font.SourceSans
@@ -172,22 +104,12 @@ MobileBtn.MouseButton1Click:Connect(function()
     PcBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 end)
 
-local WarningLabel = Instance.new("TextLabel")
-WarningLabel.Size = UDim2.new(0, 300, 0, 20)
-WarningLabel.Position = UDim2.new(0.5, -150, 0, 105)
-WarningLabel.BackgroundTransparency = 1
-WarningLabel.Text = "⚠ 5번을 틀리면 블랙리스트에 올릅니다."
-WarningLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
-WarningLabel.TextSize = 12
-WarningLabel.Font = Enum.Font.SourceSansBold
-WarningLabel.Parent = MainFrame
-
 local TextBox = Instance.new("TextBox")
 TextBox.Size = UDim2.new(0, 300, 0, 35)
-TextBox.Position = UDim2.new(0.5, -150, 0, 128)
+TextBox.Position = UDim2.new(0.5, -150, 0, 115)
 TextBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextBox.PlaceholderText = "여기에 키를 입력하세요..."
+TextBox.PlaceholderText = "라이선스 키를 입력하세요..."
 TextBox.Text = ""
 TextBox.TextSize = 14
 TextBox.Font = Enum.Font.SourceSans
@@ -197,7 +119,7 @@ Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
 
 local SubmitBtn = Instance.new("TextButton")
 SubmitBtn.Size = UDim2.new(0, 300, 0, 35)
-SubmitBtn.Position = UDim2.new(0.5, -150, 0, 173)
+SubmitBtn.Position = UDim2.new(0.5, -150, 0, 158)
 SubmitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
 SubmitBtn.Text = "인증 확인"
 SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -208,7 +130,7 @@ Instance.new("UICorner", SubmitBtn).CornerRadius = UDim.new(0, 6)
 
 local NoticeLabel = Instance.new("TextLabel")
 NoticeLabel.Size = UDim2.new(1, 0, 0, 20)
-NoticeLabel.Position = UDim2.new(0, 0, 0, 213)
+NoticeLabel.Position = UDim2.new(0, 0, 0, 202)
 NoticeLabel.BackgroundTransparency = 1
 NoticeLabel.Text = ""
 NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -216,156 +138,86 @@ NoticeLabel.TextSize = 12
 NoticeLabel.Font = Enum.Font.SourceSans
 NoticeLabel.Parent = MainFrame
 
-local authenticated = false
-local isUsingSharedTimeKey = false
-
-local isKeyBlacklisted = false
-pcall(function()
-    if isfile and isfile(keyBlacklistFileName) then
-        local content = readfile(keyBlacklistFileName)
-        if content:find(SHARED_TIME_KEY) then
-            isKeyBlacklisted = true
-        end
-    end
-end)
-
-if isKeyBlacklisted and not isPermanentUser then
-    KeyGui:Destroy()
-    LocalPlayer:Kick("[AXR 보안 시스템] 해당 공용 시간제 키는 기간이 만료되어 사용할 수 없습니다.")
-    return
-end
-
-local existingExpiryTime = nil
-pcall(function()
-    if isfile and isfile(timeExpiryFileName) then
-        local content = readfile(timeExpiryFileName)
-        existingExpiryTime = tonumber(content)
-    end
-end)
-
-if existingExpiryTime and not isPermanentUser then
-    if os.time() >= existingExpiryTime then
-        pcall(function()
-            if writefile then writefile(keyBlacklistFileName, SHARED_TIME_KEY) end
-        end)
-        KeyGui:Destroy()
-        LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키 시간이 만료되어 키가 차단되었습니다.")
-        return
-    else
-        isUsingSharedTimeKey = true
-    end
-end
-
-local function getFailCount()
-    local count = 0
-    pcall(function()
-        if isfile and isfile(failCountFileName) then
-            count = tonumber(readfile(failCountFileName)) or 0
-        end
-    end)
-    return count
-end
-
-local function addFailCount()
-    local current = getFailCount() + 1
-    pcall(function()
-        if writefile then writefile(failCountFileName, tostring(current)) end
-    end)
-    return current
-end
-
 SubmitBtn.MouseButton1Click:Connect(function()
-    local inputKey = TextBox.Text
-    
-    if isPermanentUser and inputKey == allowedPlayers[LocalPlayer.Name] then
-        authenticated = true
-        KeyGui:Destroy()
-    elseif inputKey == SHARED_TIME_KEY then
-        if isKeyBlacklisted then
-            NoticeLabel.Text = "만료된 공용 키입니다."
+    local inputKey = TextBox.Text:gsub("^%s*(.-)%s*$", "%1")
+    if inputKey == "" then
+        NoticeLabel.Text = "키를 입력해주세요."
+        return
+    end
+
+    NoticeLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    NoticeLabel.Text = "서버 실시간 확인 중..."
+
+    task.spawn(function()
+        local requestFunc = syn and syn.request or http_request or request
+        if not requestFunc then
+            NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            NoticeLabel.Text = "익스큐터가 HTTP 요청을 지원하지 않습니다."
             return
         end
-        
-        isUsingSharedTimeKey = true
+
+        local successFetch, responseData = pcall(function()
+            local httpResult = requestFunc({
+                Url = "https://api.jsonbin.io/v3/b/" .. BIN_ID .. "/latest",
+                Method = "GET",
+                Headers = { ["X-Master-Key"] = MASTER_KEY }
+            })
+            return HttpService:JSONDecode(httpResult.Body)
+        end)
+
+        if not successFetch or not responseData or not responseData.record then
+            NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            NoticeLabel.Text = "서버 데이터를 불러오지 못했습니다."
+            return
+        end
+
+        local keysTable = responseData.record
+
+        if keysTable[inputKey] == nil then
+            TextBox.Text = ""
+            NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            NoticeLabel.Text = "존재하지 않는 키입니다."
+            return
+        elseif keysTable[inputKey] == true then
+            TextBox.Text = ""
+            NoticeLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            NoticeLabel.Text = "이미 다른 사람이 사용한 선착순 만료 키입니다!"
+            return
+        end
+
+        keysTable[inputKey] = true
+
+        pcall(function()
+            requestFunc({
+                Url = "https://api.jsonbin.io/v3/b/" .. BIN_ID,
+                Method = "PUT",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["X-Master-Key"] = MASTER_KEY
+                },
+                Body = HttpService:JSONEncode(keysTable)
+            })
+        end)
+
+        pcall(function()
+            if writefile then
+                local data = HttpService:JSONEncode({Authenticated = true, ActiveKey = inputKey})
+                writefile(SAVE_FILE_NAME, data)
+            end
+        end)
+
+        NoticeLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
+        NoticeLabel.Text = "선착순 인증 성공! 환영합니다."
+        task.wait(0.6)
         authenticated = true
-        
-        if not existingExpiryTime then
-            pcall(function()
-                if writefile then
-                    local expiry = os.time() + TIME_LIMIT_DURATION
-                    writefile(timeExpiryFileName, tostring(expiry))
-                end
-            end)
-        end
-        
-        NoticeLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-        NoticeLabel.Text = "시간제 키 사용 됨! 로딩 중..."
-        task.wait(0.5)
         KeyGui:Destroy()
-    else
-        TextBox.Text = ""
-        local fails = addFailCount()
-        if fails >= 5 then
-            pcall(function()
-                if writefile then writefile(blacklistFileName, "BLACKLISTED_WRONG_KEY") end
-            end)
-            KeyGui:Destroy()
-            LocalPlayer:Kick("[AXR 보안 시스템] 키를 5회 이상 틀려 블랙리스트에 등록되었습니다.")
-        else
-            NoticeLabel.Text = string.format("키가 틀렸습니다! (오입력: %d/5회)", fails)
-        end
-    end
+    end)
 end)
 
-repeat task.wait() until authenticated
-
--- ============================================================
--- [공용 시간제 사용자 만료 관리 루프]
--- ============================================================
-if isUsingSharedTimeKey then
-    task.spawn(function()
-        local targetExpiryTime = existingExpiryTime
-        if not targetExpiryTime then
-            targetExpiryTime = os.time() + TIME_LIMIT_DURATION
-        end
-        
-        local timerGui = Instance.new("ScreenGui")
-        timerGui.Name = "AXRTimeLimitGui"
-        timerGui.Parent = CoreGui
-        timerGui.IgnoreGuiInset = true
-        
-        local timerLabel = Instance.new("TextLabel")
-        timerLabel.Size = UDim2.new(0, 250, 0, 35)
-        timerLabel.Position = UDim2.new(0.5, -125, 0, 10)
-        timerLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        timerLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-        timerLabel.TextSize = 14
-        timerLabel.Font = Enum.Font.SourceSansBold
-        timerLabel.Parent = timerGui
-        Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0, 6)
-        
-        while true do
-            local leftTime = targetExpiryTime - os.time()
-            if leftTime <= 0 then
-                timerLabel.Text = "⚠️ [AXR] 공용 시간제 키 기간 만료됨!"
-                
-                pcall(function()
-                    if writefile then
-                        writefile(keyBlacklistFileName, SHARED_TIME_KEY)
-                    end
-                end)
-                
-                task.wait(1)
-                LocalPlayer:Kick("[AXR 보안 시스템] 공용 시간제 키(10분)가 만료되어 해당 키가 차단되었습니다.")
-                break
-            else
-                local mins = math.floor(leftTime / 60)
-                local secs = math.floor(leftTime % 60)
-                timerLabel.Text = string.format("⏳ [공용 시간제] 남은 시간: %02d분 %02d초", mins, secs)
-            end
-            task.wait(1)
-        end
-    end)
+if authenticated then
+    KeyGui:Destroy()
+else
+    repeat task.wait() until authenticated
 end
 
 -- ============================================================
@@ -387,7 +239,7 @@ local C = {
     Keys = {W = false, A = false, S = false, D = false, Space = false, Shift = false},
     EspEnabled = false,
     GeneratorEspEnabled = false,
-    GeneratorWirePreviewEnabled = false, -- 발전기 줄 미리보기 기능 상태 추가
+    GeneratorWirePreviewEnabled = false,
     AimbotEnabled = false,
     AimbotRadius = 150,
     HitboxExpandEnabled = false,
@@ -409,7 +261,7 @@ local lockedAimbotTarget = nil
 local MainWindow = Rayfield:CreateWindow({
    Name = "AXR 포세이큰 스크립트 (" .. selectedPlatform .. " 모드)",
    LoadingTitle = "AXR 포세이큰 로딩 중...",
-   LoadingSubtitle = "by zxxdaswo, yw62su, 5ee566, dohunpoop, jihoo215500_b",
+   LoadingSubtitle = "by AXR",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AXRForsakenHub",
@@ -724,7 +576,6 @@ ParticipantTab:CreateButton({
    end,
 })
 
--- [요청하신 기능 추가] 자동 발전기 클리어 버튼 바로 아래에 배치
 ParticipantTab:CreateToggle({
    Name = "발전기 줄 미리보기 ON/OFF (불투명도 조절)",
    CurrentValue = C.GeneratorWirePreviewEnabled,
@@ -743,17 +594,15 @@ ParticipantTab:CreateToggle({
          
          for _, obj in ipairs(Workspace:GetDescendants()) do
             local nameLower = obj.Name:lower()
-            -- 발전기 전기선, 케이블, 와이어 등을 탐색
             if nameLower:find("wire") or nameLower:find("cable") or nameLower:find("line") or nameLower:find("전선") or nameLower:find("줄") then
                if obj:IsA("BasePart") and not scannedWires[obj] then
                   scannedWires[obj] = true
                   
-                  -- 기존 속성 백업 및 불투명도 적용 (Highlight 또는 투명도 조절)
                   local hl = Instance.new("Highlight")
                   hl.Adornee = obj
                   hl.FillColor = Color3.fromRGB(0, 170, 255)
                   hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                  hl.FillTransparency = 0.3 -- 불투명도 조절
+                  hl.FillTransparency = 0.3
                   hl.OutlineTransparency = 0.1
                   hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                   hl.Parent = container
@@ -892,7 +741,6 @@ ParticipantTab:CreateButton({
       local genData = generatorInstances[selectedGeneratorOption]
       if genData and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
          local rootPart = LocalPlayer.Character.HumanoidRootPart
-         
          local targetPos = genData.part.Position
          local offsetPos = targetPos + (genData.part.CFrame.LookVector * 3)
          rootPart.CFrame = CFrame.new(Vector3.new(offsetPos.X, targetPos.Y, offsetPos.Z), targetPos)
@@ -1086,7 +934,7 @@ HunterTab:CreateButton({
 })
 
 -- ============================================================
--- [InquiryTab 내용: 문의 카테고리 (새로운 문의 웹훅 적용)]
+-- [InquiryTab 내용: 문의 카테고리]
 -- ============================================================
 InquiryTab:CreateSection("개발자에게 문의하기")
 InquiryTab:CreateSection("⚠️ 주의: 장난 및 도배성 문의는 개발자에게 실시간 알림이 가므로 자제해 주세요!")
@@ -1126,8 +974,6 @@ InquiryTab:CreateButton({
       end
 
       local finalDiscordName = (discordNameInput == "" or discordNameInput:gsub("%s+", "") == "") and "입력 안 함" or discordNameInput
-
-      -- 문의 전용 웹훅 주소 적용
       local inquiryWebhookUrl = "https://discord.com/api/webhooks/1556961378953330762/G1saYuhrhmJsYRbeJJwAKrG_A7KRWXJeBpTul7ouEpNJhPWJZEr_VV20qb4aeepcDuDT"
       local thumbUrl = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=420&height=420&format=png", LocalPlayer.UserId)
       
@@ -1198,7 +1044,6 @@ InquiryTab:CreateButton({
 -- ============================================================
 UserInputService.InputBegan:Connect(function(input, gp)
    if gp then return end
-   
    if input.KeyCode == Enum.KeyCode.W then C.Keys.W = true
    elseif input.KeyCode == Enum.KeyCode.A then C.Keys.A = true
    elseif input.KeyCode == Enum.KeyCode.S then C.Keys.S = true
@@ -1239,7 +1084,6 @@ RunService.RenderStepped:Connect(function()
 
    if C.AimbotEnabled then
       local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-      
       local isTargetValid = false
       if lockedAimbotTarget and lockedAimbotTarget.Character then
          local targetHum = lockedAimbotTarget.Character:FindFirstChild("Humanoid")
@@ -1275,7 +1119,7 @@ RunService.RenderStepped:Connect(function()
       end
       
       if lockedAimbotTarget and lockedAimbotTarget.Character then
-         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorsu") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
+         local targetPart = lockedAimbotTarget.Character:FindFirstChild("HumanoidRootPart") or lockedAimbotTarget.Character:FindFirstChild("LowerTorso")
          if targetPart then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
          end
